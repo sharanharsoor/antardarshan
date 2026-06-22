@@ -1,0 +1,170 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* AntarDarshan Design System — CSS Custom Properties */
+:root {
+  --color-background: #fdfcfa;
+  --color-surface: #f8f5f0;
+  --color-foreground: #2d2a26;
+  --color-muted: #6b6560;
+  --color-accent: #c4854c;
+  --color-accent-hover: #a66b35;
+  --color-citation-bg: #f5f0eb;
+  --color-border: #e8e2da;
+  --color-error: #c44c4c;
+  --color-success: #4c8a5b;
+
+  /* Tradition badges */
+  --color-vedanta: #8b6914;
+  --color-buddhist: #5b7e3d;
+  --color-yoga: #6b4c8a;
+  --color-jain: #2e7a5a;
+  --color-sikh: #2e5a88;
+  --color-bhakti: #8a4c6b;
+}
+
+[data-theme="dark"] {
+  --color-background: #1a1816;
+  --color-surface: #252220;
+  --color-foreground: #e8e2da;
+  --color-muted: #9b9590;
+  --color-accent: #d4a574;
+  --color-accent-hover: #e8b88a;
+  --color-citation-bg: #2a2624;
+  --color-border: #3a3530;
+  --color-error: #e07070;
+  --color-success: #70b080;
+
+  --color-vedanta: #c4a04c;
+  --color-buddhist: #8bb86a;
+  --color-yoga: #9b7cb8;
+  --color-jain: #5baa8a;
+  --color-sikh: #5b8ab8;
+  --color-bhakti: #b87c9b;
+}
+
+/* Tailwind utility mappings */
+@theme {
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-foreground: var(--color-foreground);
+  --color-muted: var(--color-muted);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-citation-bg: var(--color-citation-bg);
+  --color-border: var(--color-border);
+  --color-error: var(--color-error);
+  --color-success: var(--color-success);
+}
+
+/* Base styles */
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Typography */
+.font-serif {
+  font-family: var(--font-serif), Georgia, serif;
+}
+
+/* Devanagari script — for product name and Sanskrit verse numbers */
+.font-devanagari {
+  font-family: var(--font-devanagari), "Noto Serif Devanagari", serif;
+}
+
+/* Verse text — larger, more breathing room */
+.verse-text {
+  font-size: 1.125rem;
+  line-height: 1.8;
+}
+
+@media (min-width: 768px) {
+  .verse-text {
+    font-size: 1.25rem;
+  }
+}
+
+/* Citation blockquote styling */
+.citation-block {
+  background: var(--color-citation-bg);
+  border-left: 3px solid var(--color-accent);
+  padding: 1rem 1.25rem;
+  border-radius: 0.375rem;
+  margin: 0.75rem 0;
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Prose (ReactMarkdown) typography overrides ───────────────────────────── */
+/* The .prose class is used for Q&A answers and verse explanations.
+   Override defaults to match AntarDarshan's warm dark aesthetic. */
+.prose {
+  --tw-prose-headings: var(--color-accent);
+  --tw-prose-body: var(--color-foreground);
+  --tw-prose-bold: var(--color-foreground);
+  --tw-prose-quotes: var(--color-muted);
+  --tw-prose-quote-borders: var(--color-accent);
+  --tw-prose-links: var(--color-accent);
+}
+
+.prose h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  margin-top: 1.5rem;
+  margin-bottom: 0.4rem;
+  color: var(--color-accent);
+}
+
+.prose h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.3rem;
+  color: var(--color-foreground);
+}
+
+.prose blockquote {
+  border-left-color: var(--color-accent);
+  background: var(--color-citation-bg);
+  border-radius: 0 0.375rem 0.375rem 0;
+  padding: 0.5rem 1rem;
+  font-style: italic;
+  color: var(--color-foreground);
+}
+
+.prose p {
+  margin-bottom: 0.75rem;
+  line-height: 1.75;
+}
+
+/* Scrollbar — wider so it's easy to grab without hitting the browser window edge */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 6px;
+  border: 3px solid var(--color-surface); /* inset effect, thumb appears thinner than track */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) var(--color-surface);
+}

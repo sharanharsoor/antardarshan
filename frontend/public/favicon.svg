@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Dark background -->
+  <rect width="64" height="64" rx="12" fill="#1a1816"/>
+
+  <!-- Open book -->
+  <path d="M10 42 Q32 36 32 36 Q32 36 54 42 L54 26 Q32 20 32 20 Q32 20 10 26 Z"
+        fill="#c4854c" opacity="0.9"/>
+  <!-- Book spine center -->
+  <line x1="32" y1="20" x2="32" y2="42" stroke="#1a1816" stroke-width="1.5"/>
+  <!-- Left page -->
+  <path d="M10 26 Q21 22 32 20 L32 42 Q21 40 10 42 Z"
+        fill="#d4a574" opacity="0.85"/>
+  <!-- Right page -->
+  <path d="M32 20 Q43 22 54 26 L54 42 Q43 40 32 42 Z"
+        fill="#e8c090" opacity="0.75"/>
+
+  <!-- Lotus above book -->
+  <!-- Center petal -->
+  <ellipse cx="32" cy="16" rx="3" ry="5.5" fill="#d4a574"/>
+  <!-- Side petals -->
+  <ellipse cx="26" cy="17.5" rx="2.5" ry="4.5" fill="#c4854c" transform="rotate(-20 26 17.5)"/>
+  <ellipse cx="38" cy="17.5" rx="2.5" ry="4.5" fill="#c4854c" transform="rotate(20 38 17.5)"/>
+  <ellipse cx="21" cy="20" rx="2" ry="3.5" fill="#a66b35" transform="rotate(-38 21 20)"/>
+  <ellipse cx="43" cy="20" rx="2" ry="3.5" fill="#a66b35" transform="rotate(38 43 20)"/>
+
+  <!-- Light rays from book center -->
+  <line x1="32" y1="36" x2="32" y2="24" stroke="#d4a574" stroke-width="0.8" opacity="0.5"/>
+  <line x1="32" y1="36" x2="24" y2="26" stroke="#d4a574" stroke-width="0.6" opacity="0.35"/>
+  <line x1="32" y1="36" x2="40" y2="26" stroke="#d4a574" stroke-width="0.6" opacity="0.35"/>
+</svg>
