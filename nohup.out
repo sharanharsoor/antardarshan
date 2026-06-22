@@ -1,104 +1,0 @@
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-
-============================================================
-AntarDarshan — Hybrid Embed + Load (prod mode)
-Chunk size: 2000 (encode + upsert per batch)
-============================================================
-
-[1/4] Loading processed chunks...
-  Loaded 462 chunks from agni_purana_dutt_vol1.json
-  Loaded 1613 chunks from anguttara_nikaya_sujato.json
-  Loaded 208 chunks from anugita_telang.json
-  Loaded 445 chunks from arthashastra_shamasastry.json
-  Loaded 296 chunks from ashtavakra_gita_richards.json
-  Loaded 518 chunks from atharva_veda_griffith.json
-  Loaded 240 chunks from bhagavad_gita_arnold.json
-  Loaded 66 chunks from bhagavad_gita_telang.json
-  Loaded 429 chunks from brahma_sutras_ramanuja.json
-  Loaded 379 chunks from brahma_sutras_shankara.json
-  Loaded 342 chunks from brahma_sutras_shankara_pg.json
-  Loaded 234 chunks from brihadaranyaka_upanishad_muller.json
-  Loaded 68 chunks from chandogya_upanishad_muller.json
-  Loaded 423 chunks from dhammapada_sujato.json
-  Loaded 170 chunks from digha_nikaya_sujato.json
-  Loaded 124 chunks from garuda_purana_wood.json
-  Loaded 281 chunks from institutes_of_vishnu_jolly.json
-  Loaded 18 chunks from isha_upanishad_muller.json
-  Loaded 289 chunks from jain_sutras_jacobi_part1.json
-  Loaded 365 chunks from jain_sutras_jacobi_part2.json
-  Loaded 119 chunks from katha_upanishad_muller.json
-  Loaded 35 chunks from kena_upanishad_muller.json
-  Loaded 5011 chunks from mahabharata_ganguli.json
-  Loaded 528 chunks from majjhima_nikaya_sujato.json
-  Loaded 619 chunks from manu_smriti_buhler.json
-  Loaded 646 chunks from markandeya_purana_pargiter.json
-  Loaded 300 chunks from milindapanha_rhys_davids.json
-  Loaded 23 chunks from mundaka_upanishad_muller.json
-  Loaded 198 chunks from nyaya_sutras_vidyabhusana.json
-  Loaded 62 chunks from prashna_upanishad_muller.json
-  Loaded 65 chunks from psalms_maratha_saints.json
-  Loaded 490 chunks from ramayana_griffith.json
-  Loaded 556 chunks from rigveda_griffith.json
-  Loaded 174 chunks from samkhya_karika_colebrooke.json
-  Loaded 1901 chunks from samyutta_nikaya_sujato.json
-  Loaded 44 chunks from sanatsujatiya_telang.json
-  Loaded 33 chunks from songs_of_kabir_tagore.json
-  Loaded 108 chunks from svetasvatara_upanishad_muller.json
-  Loaded 27 chunks from taittiriya_upanishad_muller.json
-  Loaded 593 chunks from thirukkural_pope.json
-  Loaded 345 chunks from vaisheshika_sutras_sinha.json
-  Loaded 112 chunks from vivekachudamani_madhavananda.json
-  Loaded 126 chunks from vivekananda_collected.json
-  Loaded 193 chunks from yoga_sutras_johnston.json
-  Total: 19278 chunks
-
-[2/4] Building parent context (±2 verses)...
-  18939/19278 chunks have parent context.
-
-[3/4] Connecting to Qdrant...
-  Loading BAAI/bge-m3 (production)...
-Fetching 30 files:   0%|          | 0/30 [00:00<?, ?it/s]Fetching 30 files: 100%|██████████| 30/30 [00:00<00:00, 6790.20it/s]
-Loading weights:   0%|          | 0/391 [00:00<?, ?it/s]Loading weights: 100%|██████████| 391/391 [00:00<00:00, 93445.75it/s]
-
-[4/4] Encoding + uploading in windows of 2000...
-
-  Window 1/10: chunks 1–2000 (2000 chunks)
-pre tokenize:   0%|          | 0/500 [00:00<?, ?it/s]pre tokenize:  14%|█▍        | 69/500 [00:00<00:00, 678.65it/s]pre tokenize:  27%|██▋       | 137/500 [00:00<00:00, 583.91it/s]pre tokenize:  48%|████▊     | 238/500 [00:00<00:00, 760.93it/s]pre tokenize:  75%|███████▌  | 375/500 [00:00<00:00, 987.74it/s]pre tokenize:  98%|█████████▊| 488/500 [00:00<00:00, 1036.18it/s]pre tokenize: 100%|██████████| 500/500 [00:00<00:00, 919.75it/s] 
-Inference Embeddings:   0%|          | 0/500 [00:00<?, ?it/s]Inference Embeddings:   0%|          | 1/500 [00:00<03:56,  2.11it/s]Inference Embeddings:   0%|          | 2/500 [00:00<03:03,  2.72it/s]Inference Embeddings:   1%|          | 3/500 [00:01<02:46,  2.99it/s]Inference Embeddings:   1%|          | 4/500 [00:01<02:37,  3.14it/s]Inference Embeddings:   1%|          | 5/500 [00:01<02:32,  3.24it/s]Inference Embeddings:   1%|          | 6/500 [00:01<02:29,  3.29it/s]Inference Embeddings:   1%|▏         | 7/500 [00:02<02:27,  3.33it/s]Inference Embeddings:   1%|▏         | 7/500 [00:02<02:57,  2.77it/s]
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/Users/sharsoor/Desktop/exp/person/bhagwatgita/ingestion/embed_and_load.py", line 291, in <module>
-    main()
-    ~~~~^^
-  File "/Users/sharsoor/Desktop/exp/person/bhagwatgita/ingestion/embed_and_load.py", line 259, in main
-    output = model.encode(texts, return_dense=True, return_sparse=True, batch_size=4)
-  File "/Users/sharsoor/Desktop/exp/person/bhagwatgita/.venv/lib/python3.14/site-packages/FlagEmbedding/inference/embedder/encoder_only/m3.py", line 300, in encode
-    return super().encode(
-           ~~~~~~~~~~~~~~^
-        sentences,
-        ^^^^^^^^^^
-    ...<5 lines>...
-        **kwargs
-        ^^^^^^^^
-    )
-    ^
-  File "/Users/sharsoor/Desktop/exp/person/bhagwatgita/.venv/lib/python3.14/site-packages/FlagEmbedding/abc/inference/AbsEmbedder.py", line 279, in encode
-    return self.encode_single_device(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~^
-        sentences,
-        ^^^^^^^^^^
-    ...<4 lines>...
-        **kwargs
-        ^^^^^^^^
-    )
-    ^
-  File "/Users/sharsoor/Desktop/exp/person/bhagwatgita/.venv/lib/python3.14/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
-    return func(*args, **kwargs)
-  File "/Users/sharsoor/Desktop/exp/person/bhagwatgita/.venv/lib/python3.14/site-packages/FlagEmbedding/inference/embedder/encoder_only/m3.py", line 437, in encode_single_device
-    all_dense_embeddings.append(self._convert_to_numpy(outputs['dense_vecs'], device=device))
-                                ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/sharsoor/Desktop/exp/person/bhagwatgita/.venv/lib/python3.14/site-packages/FlagEmbedding/abc/inference/AbsEmbedder.py", line 473, in _convert_to_numpy
-    return embeddings.cpu().numpy()
-           ~~~~~~~~~~~~~~^^
-KeyboardInterrupt
