@@ -110,6 +110,84 @@ export async function isVerseBookmarked(
   return data?.id ?? null;
 }
 
+// ── Highlights + Notes ───────────────────────────────────────────────────────
+
+export interface Highlight {
+  id: string;
+  slug: string;
+  chapter: number;
+  verse: number;
+  selected_text: string;
+  selected_occurrence: number;
+  normalized_text_hash: string | null;
+  color: 'yellow' | 'green' | 'blue' | 'pink';
+  note: string | null;
+  created_at: string;
+}
+
+export async function getHighlightsForChapter(slug: string, chapter: number): Promise<Highlight[]> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data } = await supabase
+    .from('highlights')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('slug', slug)
+    .eq('chapter', chapter)
+    .order('created_at', { ascending: true });
+
+  return (data ?? []) as Highlight[];
+}
+
+export async function saveHighlight(
+  slug: string,
+  chapter: number,
+  verse: number,
+  selectedText: string,
+  selectedOccurrence: number,
+  normalizedTextHash: string,
+  color: Highlight['color'],
+): Promise<Highlight | null> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('highlights')
+    .insert({
+      user_id: user.id,
+      slug,
+      chapter,
+      verse,
+      selected_text: selectedText,
+      selected_occurrence: selectedOccurrence,
+      normalized_text_hash: normalizedTextHash,
+      color,
+    })
+    .select()
+    .single();
+
+  if (error) return null;
+  return data as Highlight;
+}
+
+export async function deleteHighlight(id: string): Promise<boolean> {
+  const supabase = createClient();
+  const { error } = await supabase.from('highlights').delete().eq('id', id);
+  return !error;
+}
+
+export async function updateHighlightNote(id: string, note: string): Promise<boolean> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from('highlights')
+    .update({ note: note || null, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  return !error;
+}
+
 // ── Auth helper ──────────────────────────────────────────────────────────────
 
 export async function getCurrentUser() {
