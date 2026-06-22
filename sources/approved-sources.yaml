@@ -1,0 +1,36 @@
+# AntarDarshan — Approved Source Registry
+# Only sources listed here with status: approved will be ingested.
+# Add new sources via PR to sources/community/
+
+sources:
+  - text_name: "Bhagavad Gita (The Song Celestial)"
+    translator: "Edwin Arnold"
+    year: 1885
+    tradition: hindu_vedanta
+    license_tier: A
+    license_proof: "https://www.gutenberg.org/ebooks/2388"
+    source_url: "https://www.gutenberg.org/cache/epub/2388/pg2388.txt"
+    parser: gita_arnold
+    status: approved
+
+  - text_name: "Ashtavakra Gita"
+    translator: "John Richards"
+    year: 1994
+    tradition: hindu_vedanta
+    license_tier: A
+    license_proof: "https://www.wisdomlib.org/hinduism/book/ashtavakra-gita — Richards explicitly released to public domain worldwide"
+    # NOTE: PG #10311 is Thomas Edison phonograph book — NOT Ashtavakra Gita. Do NOT use as proof.
+    source_url_canonical: "https://www.wisdomlib.org/hinduism/book/ashtavakra-gita"
+    source_url_fetched: "corpus/raw/ashtavakra_gita_richards.txt"  # downloaded from tamilnation.co mirror
+    parser: ashtavakra
+    status: approved
+
+  - text_name: "Dhammapada"
+    translator: "Bhikkhu Sujato"
+    year: 2021
+    tradition: buddhist
+    license_tier: A
+    license_proof: "https://suttacentral.net/dhp — CC0"
+    source_url: "https://github.com/suttacentral/sc-data"
+    parser: dhammapada_sujato
+    status: approved

@@ -1,0 +1,71 @@
+# Secrets — never commit these
+.env
+.env.local
+.env.*.local
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# External packages (your own published libs, installed via pip)
+chunking/
+llm-smartmem/
+
+# LLM planning drafts — internal working documents, not for contributors
+COMBINED-PLAN.md
+claude-opus-4-plan.md
+indian_philosophy_ai_mvp_Codex-5.3.plan.md
+plan-sonnet-4-6.md
+
+# Screenshots and canvas artifacts
+*.png
+*.canvas.tsx
+*.canvas
+
+# Process logs
+nohup.out
+
+# Qdrant local storage (284MB, environment-specific — use VPS Qdrant in prod)
+qdrant_data/
+
+# Corpus data — large files, regenerated from pipeline
+corpus/raw/
+corpus/processed/
+corpus/contextual_progress.json
+
+# Database
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Node / Next.js
+node_modules/
+.next/
+frontend/.next/
+frontend/node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+/tmp/
+
+# IDE
+.cursor/
+*.swp
+*.swo
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage

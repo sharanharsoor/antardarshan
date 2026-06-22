@@ -1,0 +1,935 @@
+{
+  "total": 25,
+  "passed": 24,
+  "failed": 1,
+  "rate": 96.0,
+  "p50_latency_ms": 7351,
+  "max_latency_ms": 119138,
+  "results": [
+    {
+      "id": 1,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Brahma Sutras (Shankara commentary)",
+        "Svetasvatara Upanishad",
+        "Ashtavakra Gita",
+        "Prashna Upanishad",
+        "Brahma Sutras (Ramanuja commentary)"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta"
+      ],
+      "retrieved_chapters": [
+        2,
+        4,
+        6,
+        18
+      ],
+      "retrieved_verses": [
+        5,
+        14,
+        31,
+        182,
+        418
+      ],
+      "expected_scriptures": [
+        "Katha Upanishad",
+        "Ashtavakra Gita",
+        "Bhagavad Gita",
+        "Brihadaranyaka Upanishad",
+        "Vivekachudamani"
+      ],
+      "expected_traditions": [
+        "hindu_vedanta"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 18389
+    },
+    {
+      "id": 2,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Anugita",
+        "Bhagavad Gita",
+        "Thirukkural",
+        "Mahabharata"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta",
+        "sant_bhakti"
+      ],
+      "retrieved_chapters": [
+        1,
+        2,
+        3,
+        12
+      ],
+      "retrieved_verses": [
+        6,
+        14,
+        39,
+        44,
+        4309
+      ],
+      "expected_scriptures": [
+        "Bhagavad Gita"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [
+        2
+      ],
+      "expected_verses": [],
+      "latency_ms": 7165
+    },
+    {
+      "id": 3,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Bhagavad Gita"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta"
+      ],
+      "retrieved_chapters": [
+        3,
+        9,
+        18
+      ],
+      "retrieved_verses": [
+        3,
+        4,
+        6,
+        8,
+        11
+      ],
+      "expected_scriptures": [
+        "Bhagavad Gita (Telang)",
+        "Bhagavad Gita"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 9075
+    },
+    {
+      "id": 4,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Anguttara Nikaya",
+        "Milindapanha",
+        "Brahma Sutras (Shankara commentary)",
+        "Samyutta Nikaya"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        4,
+        35,
+        56
+      ],
+      "retrieved_verses": [
+        49,
+        80,
+        163,
+        330,
+        11000
+      ],
+      "expected_scriptures": [
+        "Anguttara Nikaya",
+        "Dhammapada",
+        "Digha Nikaya",
+        "Majjhima Nikaya",
+        "Samyutta Nikaya"
+      ],
+      "expected_traditions": [
+        "buddhist"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 5685
+    },
+    {
+      "id": 5,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Vivekananda - Jnana-Yoga",
+        "Ashtavakra Gita",
+        "Brahma Sutras (Shankara commentary)",
+        "Bhagavad Gita (Telang)"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta"
+      ],
+      "retrieved_chapters": [
+        1,
+        2,
+        11
+      ],
+      "retrieved_verses": [
+        2,
+        5,
+        7,
+        15,
+        70
+      ],
+      "expected_scriptures": [
+        "Ashtavakra Gita"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [
+        1
+      ],
+      "expected_verses": [],
+      "latency_ms": 7152
+    },
+    {
+      "id": 6,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Ashtavakra Gita",
+        "Brahma Sutras (Shankara commentary)",
+        "Vivekachudamani"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta"
+      ],
+      "retrieved_chapters": [
+        1,
+        2,
+        8
+      ],
+      "retrieved_verses": [
+        2,
+        3,
+        6,
+        11,
+        13
+      ],
+      "expected_scriptures": [
+        "Ashtavakra Gita",
+        "Brihadaranyaka Upanishad",
+        "Chandogya Upanishad",
+        "Vivekachudamani"
+      ],
+      "expected_traditions": [
+        "hindu_vedanta"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 10960
+    },
+    {
+      "id": 7,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Digha Nikaya",
+        "Majjhima Nikaya",
+        "Mahabharata",
+        "Samyutta Nikaya"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        2,
+        5,
+        22
+      ],
+      "retrieved_verses": [
+        7,
+        17,
+        1456,
+        15004,
+        138002
+      ],
+      "expected_scriptures": [
+        "Bhagavad Gita",
+        "Ashtavakra Gita",
+        "Majjhima Nikaya"
+      ],
+      "expected_traditions": [
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 9883
+    },
+    {
+      "id": 8,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Dhammapada",
+        "Thirukkural",
+        "Yoga Sutras"
+      ],
+      "retrieved_traditions": [
+        "hindu_yoga",
+        "sant_bhakti",
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        2
+      ],
+      "retrieved_verses": [
+        3,
+        5,
+        8,
+        22,
+        29
+      ],
+      "expected_scriptures": [
+        "Dhammapada"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [
+        1
+      ],
+      "expected_verses": [
+        5
+      ],
+      "latency_ms": 4269
+    },
+    {
+      "id": 9,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Anugita",
+        "Mahabharata",
+        "Vivekananda - Raja-Yoga",
+        "Samkhya Karika",
+        "Vivekananda - Jnana-Yoga"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta"
+      ],
+      "retrieved_chapters": [
+        1,
+        12
+      ],
+      "retrieved_verses": [
+        9,
+        19,
+        89,
+        135,
+        3125
+      ],
+      "expected_scriptures": [
+        "Dhammapada",
+        "Ashtavakra Gita",
+        "Majjhima Nikaya",
+        "Yoga Sutras",
+        "Samkhya Karika"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 7140
+    },
+    {
+      "id": 10,
+      "pass": false,
+      "retrieved_scriptures": [
+        "Jain Sutras (SBE 22)",
+        "Brahma Sutras (Shankara commentary)",
+        "Mahabharata",
+        "Yoga Sutras"
+      ],
+      "retrieved_traditions": [
+        "hindu_yoga",
+        "hindu_vedanta",
+        "jain"
+      ],
+      "retrieved_chapters": [
+        1,
+        2,
+        3,
+        4,
+        12
+      ],
+      "retrieved_verses": [
+        8,
+        103,
+        249,
+        3666,
+        3801
+      ],
+      "expected_scriptures": [
+        "Bhagavad Gita (Telang)",
+        "Bhagavad Gita",
+        "Vivekananda - Karma-Yoga"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 6901
+    },
+    {
+      "id": 11,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Samkhya Karika",
+        "Brahma Sutras (Ramanuja commentary)",
+        "Digha Nikaya",
+        "Yoga Sutras"
+      ],
+      "retrieved_traditions": [
+        "hindu_yoga",
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        4
+      ],
+      "retrieved_verses": [
+        5,
+        17,
+        33,
+        83,
+        15003
+      ],
+      "expected_scriptures": [
+        "Ashtavakra Gita",
+        "Brihadaranyaka Upanishad",
+        "Katha Upanishad",
+        "Yoga Sutras"
+      ],
+      "expected_traditions": [
+        "hindu_vedanta"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 6802
+    },
+    {
+      "id": 12,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Anguttara Nikaya",
+        "Dhammapada",
+        "Mahabharata"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        3,
+        7,
+        17
+      ],
+      "retrieved_verses": [
+        221,
+        223,
+        676,
+        1083,
+        64001
+      ],
+      "expected_scriptures": [
+        "Anguttara Nikaya",
+        "Dhammapada",
+        "Bhagavad Gita",
+        "Majjhima Nikaya"
+      ],
+      "expected_traditions": [
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 7649
+    },
+    {
+      "id": 13,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Anugita",
+        "Svetasvatara Upanishad",
+        "Prashna Upanishad",
+        "Yoga Sutras",
+        "Brahma Sutras (Ramanuja commentary)"
+      ],
+      "retrieved_traditions": [
+        "hindu_yoga",
+        "hindu_vedanta"
+      ],
+      "retrieved_chapters": [
+        1,
+        3,
+        4,
+        6
+      ],
+      "retrieved_verses": [
+        3,
+        18,
+        38,
+        47,
+        395
+      ],
+      "expected_scriptures": [
+        "Dhammapada",
+        "Bhagavad Gita",
+        "Majjhima Nikaya",
+        "Yoga Sutras"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 29174
+    },
+    {
+      "id": 14,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Samkhya Karika",
+        "Institutes of Vishnu",
+        "Mahabharata",
+        "Vivekachudamani"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta"
+      ],
+      "retrieved_chapters": [
+        1
+      ],
+      "retrieved_verses": [
+        54,
+        67,
+        69,
+        94,
+        4107
+      ],
+      "expected_scriptures": [
+        "Ashtavakra Gita",
+        "Bhagavad Gita",
+        "Vivekachudamani"
+      ],
+      "expected_traditions": [
+        "hindu_vedanta"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 7351
+    },
+    {
+      "id": 15,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Anguttara Nikaya",
+        "Digha Nikaya",
+        "Samyutta Nikaya"
+      ],
+      "retrieved_traditions": [
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        5,
+        7,
+        22
+      ],
+      "retrieved_verses": [
+        62,
+        152,
+        1002,
+        49001,
+        85001
+      ],
+      "expected_scriptures": [
+        "Katha Upanishad",
+        "Dhammapada",
+        "Majjhima Nikaya",
+        "Bhagavad Gita",
+        "Samyutta Nikaya"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 59059
+    },
+    {
+      "id": 16,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Anguttara Nikaya",
+        "Rig Veda",
+        "Majjhima Nikaya",
+        "Samyutta Nikaya"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        5,
+        8,
+        10,
+        12
+      ],
+      "retrieved_verses": [
+        1,
+        56,
+        29000,
+        70002,
+        128002
+      ],
+      "expected_scriptures": [
+        "Bhagavad Gita",
+        "Ashtavakra Gita",
+        "Majjhima Nikaya"
+      ],
+      "expected_traditions": [
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 6143
+    },
+    {
+      "id": 17,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Samkhya Karika",
+        "Ashtavakra Gita",
+        "Yoga Sutras",
+        "Vivekananda - Jnana-Yoga",
+        "Vivekananda - Karma-Yoga"
+      ],
+      "retrieved_traditions": [
+        "hindu_yoga",
+        "hindu_vedanta"
+      ],
+      "retrieved_chapters": [
+        1,
+        4,
+        7,
+        8
+      ],
+      "retrieved_verses": [
+        2,
+        3,
+        8,
+        28,
+        150
+      ],
+      "expected_scriptures": [
+        "Ashtavakra Gita",
+        "Brihadaranyaka Upanishad",
+        "Vivekachudamani"
+      ],
+      "expected_traditions": [
+        "hindu_vedanta"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 20498
+    },
+    {
+      "id": 18,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Anguttara Nikaya",
+        "Ashtavakra Gita",
+        "Majjhima Nikaya",
+        "Mahabharata"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        3,
+        5,
+        8,
+        18
+      ],
+      "retrieved_verses": [
+        38,
+        87,
+        1450,
+        34001,
+        43000
+      ],
+      "expected_scriptures": [
+        "Dhammapada",
+        "Bhagavad Gita",
+        "Ashtavakra Gita",
+        "Katha Upanishad"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 6676
+    },
+    {
+      "id": 19,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Brahma Sutras (Shankara commentary)",
+        "Majjhima Nikaya",
+        "Samyutta Nikaya"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        2
+      ],
+      "retrieved_verses": [
+        182,
+        299,
+        329,
+        105003,
+        141001
+      ],
+      "expected_scriptures": [
+        "Dhammapada",
+        "Majjhima Nikaya",
+        "Samyutta Nikaya"
+      ],
+      "expected_traditions": [
+        "buddhist"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 5268
+    },
+    {
+      "id": 20,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Anguttara Nikaya",
+        "Ashtavakra Gita",
+        "Majjhima Nikaya",
+        "Samyutta Nikaya"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        5,
+        6,
+        48
+      ],
+      "retrieved_verses": [
+        4,
+        37,
+        38,
+        29001,
+        101002
+      ],
+      "expected_scriptures": [
+        "Bhagavad Gita (Telang)",
+        "Dhammapada",
+        "Bhagavad Gita",
+        "Ashtavakra Gita"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 12256
+    },
+    {
+      "id": 21,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Ashtavakra Gita",
+        "Vivekachudamani",
+        "Samyutta Nikaya"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        2,
+        11,
+        22
+      ],
+      "retrieved_verses": [
+        6,
+        22,
+        55,
+        91,
+        124
+      ],
+      "expected_scriptures": [
+        "Ashtavakra Gita"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [
+        1
+      ],
+      "expected_verses": [],
+      "latency_ms": 7280
+    },
+    {
+      "id": 22,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Manu Smriti",
+        "Vaisheshika Sutras",
+        "Institutes of Vishnu",
+        "Mahabharata"
+      ],
+      "retrieved_traditions": [
+        "hindu_vedanta"
+      ],
+      "retrieved_chapters": [
+        1,
+        2,
+        3
+      ],
+      "retrieved_verses": [
+        10,
+        17,
+        189,
+        215,
+        3799
+      ],
+      "expected_scriptures": [
+        "Bhagavad Gita (Telang)",
+        "Manu Smriti",
+        "Bhagavad Gita",
+        "Mahabharata"
+      ],
+      "expected_traditions": [
+        "hindu_vedanta"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 11221
+    },
+    {
+      "id": 23,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Anguttara Nikaya",
+        "Digha Nikaya",
+        "Majjhima Nikaya",
+        "Samyutta Nikaya"
+      ],
+      "retrieved_traditions": [
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        10,
+        45
+      ],
+      "retrieved_verses": [
+        8,
+        117,
+        121,
+        22006,
+        117001
+      ],
+      "expected_scriptures": [
+        "Anguttara Nikaya",
+        "Dhammapada",
+        "Majjhima Nikaya",
+        "Samyutta Nikaya"
+      ],
+      "expected_traditions": [
+        "buddhist"
+      ],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 119138
+    },
+    {
+      "id": 24,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Mahabharata",
+        "Bhagavad Gita (Telang)",
+        "Anguttara Nikaya",
+        "Yoga Sutras",
+        "Vivekachudamani"
+      ],
+      "retrieved_traditions": [
+        "hindu_yoga",
+        "hindu_vedanta",
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        2,
+        5,
+        18
+      ],
+      "retrieved_verses": [
+        1,
+        4,
+        9,
+        200,
+        1491
+      ],
+      "expected_scriptures": [
+        "Bhagavad Gita (Telang)",
+        "Ashtavakra Gita",
+        "Majjhima Nikaya",
+        "Bhagavad Gita",
+        "Vivekachudamani"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 6380
+    },
+    {
+      "id": 25,
+      "pass": true,
+      "retrieved_scriptures": [
+        "Anguttara Nikaya",
+        "Digha Nikaya",
+        "Majjhima Nikaya",
+        "Samyutta Nikaya"
+      ],
+      "retrieved_traditions": [
+        "buddhist"
+      ],
+      "retrieved_chapters": [
+        1,
+        5,
+        22
+      ],
+      "retrieved_verses": [
+        130,
+        232,
+        1002,
+        85001,
+        102001
+      ],
+      "expected_scriptures": [
+        "Katha Upanishad",
+        "Anguttara Nikaya",
+        "Digha Nikaya",
+        "Majjhima Nikaya",
+        "Bhagavad Gita",
+        "Brihadaranyaka Upanishad",
+        "Samyutta Nikaya"
+      ],
+      "expected_traditions": [],
+      "expected_chapters": [],
+      "expected_verses": [],
+      "latency_ms": 69649
+    }
+  ]
+}

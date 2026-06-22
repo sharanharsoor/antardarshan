@@ -1,0 +1,331 @@
+[
+  {
+    "id": 1,
+    "query": "What is the nature of the self?",
+    "expected_scriptures": [
+      "Ashtavakra Gita",
+      "Bhagavad Gita",
+      "Katha Upanishad",
+      "Brihadaranyaka Upanishad",
+      "Vivekachudamani"
+    ],
+    "expected_traditions": [
+      "hindu_vedanta"
+    ],
+    "mode": "citation",
+    "note": "Generic self-query — any Vedanta primary text is valid"
+  },
+  {
+    "id": 2,
+    "query": "I am going through grief after losing someone",
+    "expected_scriptures": [
+      "Bhagavad Gita"
+    ],
+    "expected_chapters": [
+      2
+    ],
+    "mode": "well_being",
+    "note": "BG Ch.2 is the canonical grief passage — hard requirement"
+  },
+  {
+    "id": 3,
+    "query": "What does the Gita say about action without attachment?",
+    "expected_scriptures": [
+      "Bhagavad Gita",
+      "Bhagavad Gita (Telang)"
+    ],
+    "mode": "citation",
+    "note": "Explicit 'Gita' mention — must retrieve from Gita"
+  },
+  {
+    "id": 4,
+    "query": "How does Buddhism view suffering?",
+    "expected_scriptures": [
+      "Dhammapada",
+      "Majjhima Nikaya",
+      "Samyutta Nikaya",
+      "Anguttara Nikaya",
+      "Digha Nikaya"
+    ],
+    "expected_traditions": [
+      "buddhist"
+    ],
+    "mode": "citation",
+    "note": "Any primary Buddhist text is valid — Pali Canon fully available now"
+  },
+  {
+    "id": 5,
+    "query": "You are the witness of everything",
+    "expected_scriptures": [
+      "Ashtavakra Gita"
+    ],
+    "expected_chapters": [
+      1
+    ],
+    "mode": "citation",
+    "note": "Verbatim Ashtavakra Gita 1.7 quote — exact match required"
+  },
+  {
+    "id": 6,
+    "query": "What is liberation according to Advaita?",
+    "expected_scriptures": [
+      "Ashtavakra Gita",
+      "Vivekachudamani",
+      "Brihadaranyaka Upanishad",
+      "Chandogya Upanishad"
+    ],
+    "expected_traditions": [
+      "hindu_vedanta"
+    ],
+    "mode": "citation"
+  },
+  {
+    "id": 7,
+    "query": "I feel anxious about making a decision",
+    "expected_scriptures": [
+      "Bhagavad Gita",
+      "Ashtavakra Gita",
+      "Majjhima Nikaya"
+    ],
+    "expected_traditions": [
+      "hindu_vedanta",
+      "buddhist"
+    ],
+    "mode": "well_being"
+  },
+  {
+    "id": 8,
+    "query": "hatred is never laid to rest by hate",
+    "expected_scriptures": [
+      "Dhammapada"
+    ],
+    "expected_chapters": [
+      1
+    ],
+    "expected_verses": [
+      5
+    ],
+    "mode": "citation",
+    "note": "Verbatim Dhammapada 1.5 — exact match required"
+  },
+  {
+    "id": 9,
+    "query": "What is the mind according to Indian philosophy?",
+    "expected_scriptures": [
+      "Dhammapada",
+      "Ashtavakra Gita",
+      "Yoga Sutras",
+      "Majjhima Nikaya",
+      "Samkhya Karika"
+    ],
+    "mode": "citation"
+  },
+  {
+    "id": 10,
+    "query": "karma yoga nishkama",
+    "expected_scriptures": [
+      "Bhagavad Gita",
+      "Bhagavad Gita (Telang)",
+      "Vivekananda - Karma-Yoga"
+    ],
+    "mode": "citation",
+    "note": "Sanskrit terms — BM25 should retrieve Gita; Vivekananda Karma-Yoga is also a valid primary source on this concept"
+  },
+  {
+    "id": 11,
+    "query": "What is consciousness?",
+    "expected_scriptures": [
+      "Ashtavakra Gita",
+      "Katha Upanishad",
+      "Brihadaranyaka Upanishad",
+      "Yoga Sutras"
+    ],
+    "expected_traditions": [
+      "hindu_vedanta"
+    ],
+    "mode": "citation"
+  },
+  {
+    "id": 12,
+    "query": "How to deal with anger?",
+    "expected_scriptures": [
+      "Dhammapada",
+      "Bhagavad Gita",
+      "Majjhima Nikaya",
+      "Anguttara Nikaya"
+    ],
+    "expected_traditions": [
+      "buddhist",
+      "hindu_vedanta"
+    ],
+    "mode": "well_being"
+  },
+  {
+    "id": 13,
+    "query": "meditation and concentration",
+    "expected_scriptures": [
+      "Bhagavad Gita",
+      "Dhammapada",
+      "Yoga Sutras",
+      "Majjhima Nikaya"
+    ],
+    "mode": "citation"
+  },
+  {
+    "id": 14,
+    "query": "What is the difference between the doer and the witness?",
+    "expected_scriptures": [
+      "Ashtavakra Gita",
+      "Bhagavad Gita",
+      "Vivekachudamani"
+    ],
+    "expected_traditions": [
+      "hindu_vedanta"
+    ],
+    "mode": "citation"
+  },
+  {
+    "id": 15,
+    "query": "impermanence of life and death",
+    "expected_scriptures": [
+      "Bhagavad Gita",
+      "Dhammapada",
+      "Samyutta Nikaya",
+      "Majjhima Nikaya",
+      "Katha Upanishad"
+    ],
+    "mode": "citation"
+  },
+  {
+    "id": 16,
+    "query": "I feel lost and don't know my purpose",
+    "expected_scriptures": [
+      "Bhagavad Gita",
+      "Ashtavakra Gita",
+      "Majjhima Nikaya"
+    ],
+    "expected_traditions": [
+      "hindu_vedanta",
+      "buddhist"
+    ],
+    "mode": "well_being"
+  },
+  {
+    "id": 17,
+    "query": "bondage and freedom",
+    "expected_scriptures": [
+      "Ashtavakra Gita",
+      "Vivekachudamani",
+      "Brihadaranyaka Upanishad"
+    ],
+    "expected_traditions": [
+      "hindu_vedanta"
+    ],
+    "mode": "citation"
+  },
+  {
+    "id": 18,
+    "query": "the wise person",
+    "expected_scriptures": [
+      "Dhammapada",
+      "Bhagavad Gita",
+      "Ashtavakra Gita",
+      "Katha Upanishad"
+    ],
+    "mode": "citation"
+  },
+  {
+    "id": 19,
+    "query": "desire and craving cause suffering",
+    "expected_scriptures": [
+      "Dhammapada",
+      "Samyutta Nikaya",
+      "Majjhima Nikaya"
+    ],
+    "expected_traditions": [
+      "buddhist"
+    ],
+    "mode": "citation",
+    "note": "Core Buddhist teaching — Pali Canon is now available, broader expected set"
+  },
+  {
+    "id": 20,
+    "query": "equanimity in pleasure and pain",
+    "expected_scriptures": [
+      "Bhagavad Gita",
+      "Bhagavad Gita (Telang)",
+      "Ashtavakra Gita",
+      "Dhammapada"
+    ],
+    "mode": "citation"
+  },
+  {
+    "id": 21,
+    "query": "I am not the body",
+    "expected_scriptures": [
+      "Ashtavakra Gita"
+    ],
+    "expected_chapters": [
+      1
+    ],
+    "mode": "citation",
+    "note": "Core Ashtavakra teaching — exact text match required"
+  },
+  {
+    "id": 22,
+    "query": "What is dharma?",
+    "expected_scriptures": [
+      "Bhagavad Gita",
+      "Bhagavad Gita (Telang)",
+      "Mahabharata",
+      "Manu Smriti"
+    ],
+    "expected_traditions": [
+      "hindu_vedanta"
+    ],
+    "mode": "citation",
+    "note": "Dharma is central to multiple Hindu texts — Mahabharata is valid"
+  },
+  {
+    "id": 23,
+    "query": "right speech and right action",
+    "expected_scriptures": [
+      "Dhammapada",
+      "Majjhima Nikaya",
+      "Samyutta Nikaya",
+      "Anguttara Nikaya"
+    ],
+    "expected_traditions": [
+      "buddhist"
+    ],
+    "mode": "citation",
+    "note": "Eightfold Path — primary Buddhist texts now available"
+  },
+  {
+    "id": 24,
+    "query": "renunciation and detachment",
+    "expected_scriptures": [
+      "Bhagavad Gita",
+      "Bhagavad Gita (Telang)",
+      "Ashtavakra Gita",
+      "Vivekachudamani",
+      "Majjhima Nikaya"
+    ],
+    "mode": "citation"
+  },
+  {
+    "id": 25,
+    "query": "What happens after death?",
+    "expected_scriptures": [
+      "Bhagavad Gita",
+      "Katha Upanishad",
+      "Brihadaranyaka Upanishad",
+      "Digha Nikaya",
+      "Samyutta Nikaya",
+      "Majjhima Nikaya",
+      "Anguttara Nikaya"
+    ],
+    "mode": "well_being",
+    "note": "Tradition-neutral death query — both Vedantic (soul immortality) and Buddhist (rebirth cycle) answers are philosophically valid"
+  }
+]

@@ -1,0 +1,42 @@
+# AntarDarshan — Indian Philosophy AI
+# Install: pip install -r requirements.txt
+
+# Core RAG pipeline
+fastapi>=0.115.0
+uvicorn>=0.30.0
+pydantic>=2.0
+
+# Embeddings
+sentence-transformers>=3.0.0
+torch>=2.0.0
+FlagEmbedding>=1.2.0
+
+# Vector DB
+qdrant-client>=1.12.0
+
+# LLM (Groq)
+groq>=0.11.0
+
+# Scraping
+crawl4ai>=0.4.0
+httpx>=0.27.0
+
+# Observability
+langfuse>=2.50.0,<3.0.0
+
+# Rate limiting
+slowapi>=0.1.9
+
+# Supabase (auth + database client for backend service-role operations)
+supabase>=2.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+pyyaml>=6.0
+rich>=13.0.0
+
+# Smart memory management for LLM conversations (github.com/sharanharsoor/llm-smartmem)
+llm-smartmem>=0.1.3
+
+# Scripture chunking library (github.com/sharanharsoor/chunking)
+chunking-strategy>=0.4.2
