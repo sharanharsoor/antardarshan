@@ -90,7 +90,7 @@ export async function queryAIStream(
       session_id: sessionId,
       top_k: 5,
       conversation_id: extras?.conversation_id,
-      log_content: extras?.log_content ?? true,
+      log_content: extras?.log_content ?? false,
     }),
   });
 

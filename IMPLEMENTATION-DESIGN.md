@@ -1215,6 +1215,9 @@ Every feature must work on 375px width:
 - [ ] Environment secrets in production
 - [ ] Smoke test all features end-to-end
 
+### Week 6 (parallel): Resilience + Graceful Degradation
+See full spec in **Resilience & Scaling** section below.
+
 ---
 
 ## Implementation Gates (must pass per feature)
@@ -1246,6 +1249,154 @@ Every feature must work on 375px width:
 3. **Quota enforcement:** backend only; frontend is display-only.
 4. **Conversation titles:** deterministic first-message truncate for V1; optional LLM title generation later.
 5. **Mobile select-text UX:** bottom-sheet interaction is required; include iOS Safari QA in acceptance testing.
+
+---
+
+---
+
+## Resilience & Scaling
+
+**Goal:** No matter how many users hit the service, the server never crashes. Users wait or see a clear error — the process never goes OOM or becomes unresponsive.
+
+### Real Bottlenecks (in priority order)
+
+| Bottleneck | Free tier ceiling | Impact |
+|---|---|---|
+| Groq RPM | ~30 req/min (free), ~600 req/min (paid) | Hard ceiling on LLM throughput |
+| BGE-M3 reranker | CPU-bound, ~500ms/call | Limits parallelism per worker |
+| FastAPI single process | GIL-limited | Needs Gunicorn multi-worker |
+| Qdrant (self-hosted) | ~200 QPS single node | Not a bottleneck until real scale |
+| SQLite | ~100 concurrent reads (WAL) | Writes serialize — use Supabase for user data |
+
+### Phase 1 — Zero-Cost Hardening (implement before production deploy)
+
+**1. Gunicorn multi-worker**
+```
+# start.sh
+gunicorn backend.app:app \
+  --worker-class uvicorn.workers.UvicornWorker \
+  --workers 5 \
+  --timeout 60 \
+  --graceful-timeout 30 \
+  --keep-alive 5
+```
+5 workers on a 2-core VPS (formula: `2 * CPU + 1`). Each worker is an independent Python process — no GIL contention between workers.
+
+**2. Global LLM concurrency cap (asyncio.Semaphore)**
+```python
+# backend/app.py
+_LLM_SEMAPHORE = asyncio.Semaphore(20)  # max 20 simultaneous LLM calls across all workers per instance
+
+async def _guarded_llm_call(...):
+    try:
+        async with asyncio.wait_for(_LLM_SEMAPHORE.acquire(), timeout=5.0):
+            return await llm_call(...)
+    except asyncio.TimeoutError:
+        raise HTTPException(503, detail={
+            "error": "Server is busy. Please retry in 30 seconds.",
+            "retry_after": 30
+        })
+```
+When 20 LLM calls are in-flight and a 21st arrives, it waits up to 5 seconds for a slot. If none frees, it gets a 503 with a clear retry message — not a crash.
+
+**3. Hard LLM timeout**
+Every Groq call wrapped in `asyncio.wait_for(..., timeout=45.0)`. If Groq hangs (network issue, overload), the request fails cleanly after 45s instead of holding a worker forever.
+
+**4. Health check endpoint**
+```
+GET /api/health
+→ { "status": "ok", "qdrant": "ok", "groq": "reachable", "db": "ok", "workers": 5 }
+```
+Returns 200 if all dependencies healthy, 503 if any are degraded. Used by:
+- Uptime monitors (UptimeRobot — free)
+- Load balancer health checks (Phase 2)
+- Frontend banner: "Service is currently degraded — Q&A may be slow"
+
+**5. Graceful SIGTERM shutdown**
+Gunicorn handles this: on deploy/restart, in-flight requests finish (up to `graceful-timeout=30s`), new requests are rejected with 503. Zero dropped connections on redeploy.
+
+**6. OOM guard — memory limits**
+```bash
+# systemd service unit
+MemoryMax=3G
+MemorySwapMax=0
+```
+If the process tries to exceed 3GB (e.g., reranker OOM), systemd kills and restarts just that worker — not the whole machine. The other 4 Gunicorn workers keep serving.
+
+**7. Frontend: graceful error display**
+- 503 → "Server is busy, please try again in 30 seconds" (not a blank screen)
+- 429 → "You've hit your daily limit (50 queries)" with reset time
+- Network timeout → "Connection lost — your message is saved, refresh to retry"
+- All streaming errors: show partial response + error banner (don't wipe what was already streamed)
+
+### Phase 2 — Multi-Instance Horizontal Scaling (when needed)
+
+When you run 2+ backend instances (e.g., behind nginx), the `asyncio.Semaphore` is per-process and no longer gives a global limit. Switch to **Upstash Redis** as a distributed counter:
+
+- **Upstash Redis free tier:** 10,000 requests/day, 256MB — enough for a rate-limit counter
+- **Cost at scale:** $0.20 per 100k requests after free tier
+
+```python
+# Replace Semaphore with Redis INCR/DECR
+async def _check_global_capacity(redis, max_concurrent=50):
+    count = await redis.incr("llm:inflight")
+    if count > max_concurrent:
+        await redis.decr("llm:inflight")
+        raise HTTPException(503, ...)
+    try:
+        return await llm_call(...)
+    finally:
+        await redis.decr("llm:inflight")
+```
+
+nginx config for load balancing:
+```nginx
+upstream antardarshan {
+    least_conn;  # route to least-busy instance
+    server 127.0.0.1:8000;
+    server 127.0.0.1:8001;
+}
+```
+
+### Phase 3 — Full Horizontal Scale (if product takes off)
+
+- Multiple VPS instances (Hetzner shared) behind Cloudflare Load Balancer
+- Qdrant cluster (3 nodes) for vector DB HA
+- Groq paid tier with API key rotation across instances
+- Redis for session affinity and distributed queue
+
+### What We Are NOT Doing (YAGNI)
+
+- No Kubernetes — overkill for current scale and cost target (~$6/month)
+- No message queue (RabbitMQ, Celery) — asyncio semaphore + Gunicorn is sufficient for Phase 1
+- No Redis for Phase 1 — adds operational complexity before it's needed
+
+### Implementation Checklist (Phase 1)
+
+- [ ] Switch `start.sh` to Gunicorn multi-worker config
+- [ ] Add `_LLM_SEMAPHORE = asyncio.Semaphore(20)` and wrap `/api/query` + `/api/query/stream`
+- [ ] Add `asyncio.wait_for(..., timeout=45)` around all Groq calls in `llm.py`
+- [ ] Add `GET /api/health` endpoint (Qdrant ping + Groq ping + DB ping)
+- [ ] Add `MemoryMax=3G` to systemd unit file
+- [ ] Frontend: catch 503 and show retry banner (not blank screen)
+- [ ] Frontend: catch streaming mid-flight errors, show partial response + error
+- [ ] UptimeRobot monitor on `/api/health` (free, 5-min interval)
+
+---
+
+---
+
+## LLM Audit Round 4 (Jun 22, 2026) — Sonnet 4.6 + Codex Health Check
+
+**Result: No blocking issues. 207/207 tests, lint clean, build clean.**
+
+### Findings resolved in this session:
+
+1. **`log_content` frontend default was `true`** — Fixed: `AskPageCore.tsx` initial state and `api.ts` fallback both changed to `false`. New users are privacy-safe by default; returning users who explicitly toggled logging keep their stored localStorage preference.
+
+2. **`npm warn Unknown env config "devdir"`** — Cursor sandbox artifact. The warning is injected by Cursor's sandboxed shell (`/var/folders/.../cursor-sandbox-cache/.../node-gyp`). Does not appear on developer machines, in CI, or in production. No project change needed.
+
+3. **Python deprecation warnings (TestClient, slowapi `asyncio.iscoroutinefunction`)** — Python 3.16+ concerns only. Current runtime is Python 3.11/3.12. Track when upgrading Python major version.
 
 ---
 

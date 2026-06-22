@@ -61,7 +61,7 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
   const [copied, setCopied] = useState(false);
   const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
   // Content logging preference — always start true (server default), read localStorage after mount
-  const [logContent, setLogContent] = useState<boolean>(true);
+  const [logContent, setLogContent] = useState<boolean>(false);
 
   const toggleLogContent = () => {
     setLogContent((prev) => {
