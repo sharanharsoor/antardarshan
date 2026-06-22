@@ -145,6 +145,7 @@ export default function ChapterReadingPage() {
   const [activeNote, setActiveNote] = useState<Highlight | null>(null);
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [highlightError, setHighlightError] = useState<string | null>(null);
   const selectionVerseRef = useRef<number | null>(null);
 
   // ── Data loading ────────────────────────────────────────────────────────────
@@ -264,8 +265,7 @@ export default function ChapterReadingPage() {
     const verse = verses.find((v) => v.verse === verseId);
     if (!verse) return;
 
-    // Determine occurrence index: count how many times this text appeared
-    // before the current selection within the verse's displayed text.
+    // Determine occurrence index
     let occurrence = 0;
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) {
@@ -287,11 +287,27 @@ export default function ChapterReadingPage() {
     const normalizedText = normalizeParagraphs(verse.text).join(" ");
     const hash = simpleHash(normalizedText);
 
-    const saved = await saveHighlight(slug, chapter, verseId, text, occurrence, hash, color);
-    if (saved) setHighlights((prev) => [...prev, saved]);
-
+    // Optimistic: show immediately, revert if save fails
+    const tempId = `temp-${crypto.randomUUID()}`;
+    const optimistic: Highlight = {
+      id: tempId, slug, chapter, verse: verseId,
+      selected_text: text, selected_occurrence: occurrence,
+      normalized_text_hash: hash, color, note: null,
+      created_at: new Date().toISOString(),
+    };
+    setHighlights((prev) => [...prev, optimistic]);
     setSelectionToolbar(null);
     window.getSelection()?.removeAllRanges();
+
+    const saved = await saveHighlight(slug, chapter, verseId, text, occurrence, hash, color);
+    if (saved) {
+      setHighlights((prev) => prev.map((h) => h.id === tempId ? saved : h));
+    } else {
+      // Revert — user likely not logged in or migration not yet run
+      setHighlights((prev) => prev.filter((h) => h.id !== tempId));
+      setHighlightError("Sign in to save highlights permanently.");
+      setTimeout(() => setHighlightError(null), 4000);
+    }
   };
 
   const handleHighlightClick = useCallback((h: Highlight) => {
@@ -399,13 +415,14 @@ export default function ChapterReadingPage() {
       {/* Floating selection toolbar — fixed to viewport so it follows scroll */}
       {selectionToolbar && (
         <div
-          className="fixed z-50 flex items-center gap-1.5 rounded-xl border border-border bg-popover shadow-xl px-2.5 py-2"
+          className="fixed z-50 flex items-center gap-1.5 rounded-xl border border-border shadow-2xl px-2.5 py-2"
           style={{
             left: selectionToolbar.x,
             top: selectionToolbar.y,
             transform: "translateX(-50%) translateY(-100%)",
+            background: "var(--color-surface)",
           }}
-          onMouseDown={(e) => e.preventDefault()} // preserve selection
+          onMouseDown={(e) => e.preventDefault()}
         >
           {(["yellow", "green", "blue", "pink"] as const).map((color) => (
             <button
@@ -422,8 +439,10 @@ export default function ChapterReadingPage() {
           ))}
           <div className="h-4 w-px bg-border mx-0.5" />
           <Link
-            href={`/ask?prefill=${encodeURIComponent(selectionToolbar.text.slice(0, 200))}`}
-            className="text-xs text-accent hover:underline px-0.5 whitespace-nowrap"
+            href={`/ask?draft=${encodeURIComponent(
+              `I was reading ${scriptureName} (Chapter ${chapter}) and came across this passage:\n\n"${selectionToolbar.text.slice(0, 300)}"\n\nMy question: `
+            )}`}
+            className="text-xs text-accent font-medium hover:underline px-0.5 whitespace-nowrap"
             onClick={() => { setSelectionToolbar(null); window.getSelection()?.removeAllRanges(); }}
           >
             ✨ Ask AI
@@ -435,6 +454,13 @@ export default function ChapterReadingPage() {
           >
             <X className="h-3 w-3" />
           </button>
+        </div>
+      )}
+
+      {/* Highlight save error toast */}
+      {highlightError && (
+        <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-border bg-surface px-4 py-2 text-sm text-muted shadow-lg">
+          {highlightError}
         </div>
       )}
 

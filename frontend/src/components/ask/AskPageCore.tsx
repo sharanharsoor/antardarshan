@@ -38,13 +38,15 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
   const searchParams = useSearchParams();
   const router = useRouter();
   const prefill = searchParams.get("prefill") ?? "";
+  // ?draft= pre-fills the input but does NOT auto-submit (user adds their question first)
+  const draft = searchParams.get("draft") ?? "";
 
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   // Always start empty — sessionStorage is restored in useEffect after mount.
   // Reading sessionStorage in useState causes SSR/client hydration mismatch.
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState(prefill);
+  const [input, setInput] = useState(draft || prefill);
   const [loading, setLoading] = useState(false);
   const [loadingConversation, setLoadingConversation] = useState(!!propConversationId);
   const [sessionId, setSessionId] = useState<string | null>(null);
