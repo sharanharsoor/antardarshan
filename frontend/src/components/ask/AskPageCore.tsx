@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Send, RotateCcw, ThumbsUp, ThumbsDown, ExternalLink,
   Share2, PanelLeftOpen, PanelLeftClose, Check, Copy,
-  ArrowUp, ArrowDown,
+  ArrowUp, ArrowDown, X, MessageSquareQuote,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { queryAIStream, getQuotaStatus, deleteSession, scriptureToSlug, type QueryResponse, type QuotaStatus } from "@/lib/api";
@@ -62,8 +62,10 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
   );
   const [copied, setCopied] = useState(false);
   const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
-  // Content logging preference — always start true (server default), read localStorage after mount
   const [logContent, setLogContent] = useState<boolean>(false);
+  // Quote-and-ask: text selected inside an AI response
+  const [selectedResponseText, setSelectedResponseText] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const toggleLogContent = () => {
     setLogContent((prev) => {
@@ -216,18 +218,39 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
     }
   }, [messages, propConversationId]);
 
-  // Quota polling
+  // Quota — fetch once on mount, then refresh after each query (event-driven, no polling loop)
   useEffect(() => {
-    const fetch = () => getQuotaStatus().then(setQuota).catch(() => {});
-    fetch();
-    const t = setInterval(fetch, 5 * 60 * 1000);
-    return () => clearInterval(t);
+    getQuotaStatus().then(setQuota).catch(() => {});
   }, []);
 
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Select text in AI response → show "Quote & Ask" bar
+  useEffect(() => {
+    const handleMouseUp = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) return;
+      const text = selection.toString().trim();
+      if (text.length < 3) return;
+
+      // Only trigger when the selection is inside the messages container
+      const container = messagesContainerRef.current;
+      if (!container) return;
+      const range = selection.getRangeAt(0);
+      const node = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+        ? range.commonAncestorContainer.parentElement
+        : range.commonAncestorContainer as Element;
+      if (!container.contains(node)) return;
+
+      setSelectedResponseText(text);
+    };
+
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => document.removeEventListener("mouseup", handleMouseUp);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -329,6 +352,9 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
       });
     } finally {
       setLoading(false);
+      // Refresh quota after each query — accurate without background polling
+      getQuotaStatus().then(setQuota).catch(() => {});
+      if (user) getUserQuota().then(setUserQuota).catch(() => {});
     }
   };
 
@@ -350,6 +376,20 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
       });
     } catch { /* non-critical */ }
   };
+
+  const handleQuoteAndAsk = useCallback(() => {
+    if (!selectedResponseText) return;
+    const quote = `> "${selectedResponseText.slice(0, 300)}"\n\n`;
+    setInput((prev) => (prev ? `${prev}\n${quote}` : quote));
+    setSelectedResponseText(null);
+    window.getSelection()?.removeAllRanges();
+    setTimeout(() => {
+      inputRef.current?.focus();
+      // Move cursor to end
+      const len = inputRef.current?.value.length ?? 0;
+      inputRef.current?.setSelectionRange(len, len);
+    }, 50);
+  }, [selectedResponseText]);
 
   const handleNewChat = useCallback(async () => {
     if (sessionId) await deleteSession(sessionId).catch(() => {});
@@ -635,9 +675,33 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
         </div>
 
         {!isReadOnly && (
-          <div className="border-t border-border px-4 py-3">
+          <div className="border-t border-border">
+            {/* Quote-and-ask bar — appears when user selects text in an AI response */}
+            {selectedResponseText && (
+              <div className="flex items-center gap-2 border-b border-border/50 bg-surface/60 px-4 py-2">
+                <MessageSquareQuote className="h-3.5 w-3.5 shrink-0 text-accent" />
+                <span className="flex-1 truncate text-xs text-muted italic">
+                  &ldquo;{selectedResponseText.slice(0, 80)}{selectedResponseText.length > 80 ? "…" : ""}&rdquo;
+                </span>
+                <button
+                  onClick={handleQuoteAndAsk}
+                  className="shrink-0 text-xs font-medium text-accent hover:underline whitespace-nowrap"
+                >
+                  Ask about this
+                </button>
+                <button
+                  onClick={() => { setSelectedResponseText(null); window.getSelection()?.removeAllRanges(); }}
+                  className="shrink-0 text-muted hover:text-foreground"
+                  aria-label="Dismiss"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            <div className="px-4 py-3">
             <form id="ask-form" onSubmit={handleSubmit} className="mx-auto flex max-w-2xl gap-2">
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -654,6 +718,7 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
                 <Send className="h-4 w-4" />
               </button>
             </form>
+            </div>
           </div>
         )}
 
