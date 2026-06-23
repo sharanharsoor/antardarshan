@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Send, RotateCcw, ThumbsUp, ThumbsDown, ExternalLink,
   Share2, PanelLeftOpen, PanelLeftClose, Check, Copy,
-  ArrowUp, ArrowDown, X, MessageSquareQuote,
+  ArrowUp, ArrowDown, MessageSquareQuote,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { queryAIStream, getQuotaStatus, deleteSession, scriptureToSlug, type QueryResponse, type QuotaStatus } from "@/lib/api";
@@ -63,8 +63,10 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
   const [copied, setCopied] = useState(false);
   const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
   const [logContent, setLogContent] = useState<boolean>(false);
-  // Quote-and-ask: text selected inside an AI response
-  const [selectedResponseText, setSelectedResponseText] = useState<string | null>(null);
+  // Quote-and-ask: text selected inside an AI response — tracks text + toolbar position
+  const [selectedResponseText, setSelectedResponseText] = useState<{
+    text: string; x: number; y: number;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const toggleLogContent = () => {
@@ -228,11 +230,14 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Select text in AI response → show "Quote & Ask" bar
+  // Select text in AI response → show floating "Ask about this" button near selection
   useEffect(() => {
     const handleMouseUp = () => {
       const selection = window.getSelection();
-      if (!selection || selection.isCollapsed) return;
+      if (!selection || selection.isCollapsed) {
+        setSelectedResponseText(null);
+        return;
+      }
       const text = selection.toString().trim();
       if (text.length < 3) return;
 
@@ -245,11 +250,25 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
         : range.commonAncestorContainer as Element;
       if (!container.contains(node)) return;
 
-      setSelectedResponseText(text);
+      // Position the button just above the selection
+      const rect = range.getBoundingClientRect();
+      setSelectedResponseText({ text, x: rect.left + rect.width / 2, y: rect.top - 6 });
+    };
+
+    // Auto-dismiss when selection is cleared (user clicks elsewhere)
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        setSelectedResponseText(null);
+      }
     };
 
     document.addEventListener("mouseup", handleMouseUp);
-    return () => document.removeEventListener("mouseup", handleMouseUp);
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => {
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("selectionchange", handleSelectionChange);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -379,13 +398,12 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
 
   const handleQuoteAndAsk = useCallback(() => {
     if (!selectedResponseText) return;
-    const quote = `> "${selectedResponseText.slice(0, 300)}"\n\n`;
+    const quote = `> "${selectedResponseText.text.slice(0, 300)}"\n\n`;
     setInput((prev) => (prev ? `${prev}\n${quote}` : quote));
     setSelectedResponseText(null);
     window.getSelection()?.removeAllRanges();
     setTimeout(() => {
       inputRef.current?.focus();
-      // Move cursor to end
       const len = inputRef.current?.value.length ?? 0;
       inputRef.current?.setSelectionRange(len, len);
     }, 50);
@@ -674,30 +692,31 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
           </button>
         </div>
 
+        {/* Floating "Ask about this" button — appears near selected text in AI response,
+            auto-dismisses when selection is cleared */}
+        {selectedResponseText && !isReadOnly && (
+          <div
+            className="fixed z-50 flex items-center gap-1.5 rounded-lg border border-border shadow-xl px-2.5 py-1.5 text-xs"
+            style={{
+              left: selectedResponseText.x,
+              top: selectedResponseText.y,
+              transform: "translateX(-50%) translateY(-100%)",
+              background: "var(--color-surface)",
+            }}
+            onMouseDown={(e) => e.preventDefault()} // preserve selection while clicking button
+          >
+            <MessageSquareQuote className="h-3 w-3 text-accent shrink-0" />
+            <button
+              onClick={handleQuoteAndAsk}
+              className="font-medium text-accent hover:underline whitespace-nowrap"
+            >
+              Ask about this
+            </button>
+          </div>
+        )}
+
         {!isReadOnly && (
           <div className="border-t border-border">
-            {/* Quote-and-ask bar — appears when user selects text in an AI response */}
-            {selectedResponseText && (
-              <div className="flex items-center gap-2 border-b border-border/50 bg-surface/60 px-4 py-2">
-                <MessageSquareQuote className="h-3.5 w-3.5 shrink-0 text-accent" />
-                <span className="flex-1 truncate text-xs text-muted italic">
-                  &ldquo;{selectedResponseText.slice(0, 80)}{selectedResponseText.length > 80 ? "…" : ""}&rdquo;
-                </span>
-                <button
-                  onClick={handleQuoteAndAsk}
-                  className="shrink-0 text-xs font-medium text-accent hover:underline whitespace-nowrap"
-                >
-                  Ask about this
-                </button>
-                <button
-                  onClick={() => { setSelectedResponseText(null); window.getSelection()?.removeAllRanges(); }}
-                  className="shrink-0 text-muted hover:text-foreground"
-                  aria-label="Dismiss"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
             <div className="px-4 py-3">
             <form id="ask-form" onSubmit={handleSubmit} className="mx-auto flex max-w-2xl gap-2">
               <input

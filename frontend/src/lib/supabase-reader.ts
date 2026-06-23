@@ -127,7 +127,8 @@ export interface Highlight {
 
 export async function getHighlightsForChapter(slug: string, chapter: number): Promise<Highlight[]> {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return [];
 
   const { data } = await supabase
@@ -151,7 +152,8 @@ export async function saveHighlight(
   color: Highlight['color'],
 ): Promise<Highlight | null> {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return null;
 
   const { data, error } = await supabase
