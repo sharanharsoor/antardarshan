@@ -861,30 +861,30 @@ This is the core Kindle feature. A reading app without highlights is just a webs
 ### Database Schema
 
 ```sql
+-- Actual implemented schema (simplified from original design)
+-- text_start_offset/text_end_offset removed — V1 uses substring matching
+-- with selected_occurrence to handle repeated phrases (no offset storage needed)
 highlights (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     slug TEXT NOT NULL,
     chapter INTEGER NOT NULL,
     verse INTEGER NOT NULL,
-    selected_text TEXT NOT NULL,          -- exact highlighted text
-    text_start_offset INTEGER NOT NULL,   -- character offset within verse text
-    text_end_offset INTEGER NOT NULL,     -- character offset within verse text
-    selected_occurrence INTEGER DEFAULT 0, -- disambiguates repeated phrases in one verse
-    normalized_text_hash TEXT,            -- guard against renderer normalization drift
+    selected_text TEXT NOT NULL,           -- exact highlighted text
+    selected_occurrence INTEGER NOT NULL DEFAULT 0, -- Nth occurrence in verse (0-indexed)
     color TEXT NOT NULL DEFAULT 'yellow'
         CHECK (color IN ('yellow', 'green', 'blue', 'pink')),
-    note TEXT,                            -- private note, max 1000 chars
+    note TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_highlights_reading ON highlights(user_id, slug, chapter, verse);
+CREATE INDEX IF NOT EXISTS idx_highlights_reading ON highlights(user_id, slug, chapter);
 
--- RLS
 ALTER TABLE highlights ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users manage own highlights" ON highlights
-    FOR ALL USING (auth.uid() = user_id);
+    FOR ALL USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 ```
 
 ### Implementation
@@ -1239,6 +1239,25 @@ See full spec in **Resilience & Scaling** section below.
 4. **Retrieval quality gate (for RAG-impacting changes)**
    - `python -m eval.run_eval` run after change.
    - No regression on direct-scripture queries.
+
+---
+
+---
+
+## Known Limitations & Deferred Work
+
+### Highlight Overlap Handling
+**Current behavior (V1):** When two highlights overlap (e.g. "truly one" inside "as truly one and indestructible"), the rendering skips the inner/later one — it becomes invisible and its note is inaccessible. The counter still counts it correctly, and the data is in the DB.
+
+**Three cases:**
+
+| Scenario | Current | Correct (future) |
+|---|---|---|
+| Exact same text re-selected | Updates color ✅ | — |
+| New selection fully contains old | Old note inaccessible ⚠ | Ask "Replace existing?" → delete old, save new |
+| Partial overlap | Earlier-positioned wins ⚠ | Ask "Replace overlapping?" → delete old, save new |
+
+**Resolution:** For V1, users should remove the inner highlight first, then re-highlight the larger region. Proper overlap detection + "Replace?" confirmation in the toolbar is deferred to a post-V1 iteration.
 
 ---
 

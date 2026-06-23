@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
@@ -9,8 +9,9 @@ import { getChapter, getScriptureDetail, explainVerse, type Verse } from "@/lib/
 import {
   saveProgress, addBookmark, removeBookmark, getBookmarksForSlug,
   getHighlightsForChapter, saveHighlight, deleteHighlight, updateHighlightNote,
-  type Highlight,
+  updateHighlightColor, getCurrentUserId, type Highlight,
 } from "@/lib/supabase-reader";
+import { HIGHLIGHT_BG, resolveHighlightSpans } from "@/lib/highlights";
 
 // ── Text normalization helpers ────────────────────────────────────────────────
 
@@ -45,76 +46,100 @@ function normalizeParagraphs(text: string): string[] {
 }
 
 // ── Highlight rendering ───────────────────────────────────────────────────────
+// Logic lives in src/lib/highlights.ts (exported for unit tests).
+// This wrapper handles the React-specific rendering (JSX nodes).
 
-/** Fast non-cryptographic hash for drift detection. */
-function simpleHash(str: string): string {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h).toString(16).padStart(8, "0");
-}
-
-const HIGHLIGHT_BG: Record<Highlight["color"], string> = {
-  yellow: "bg-yellow-200/80 dark:bg-yellow-500/35",
-  green:  "bg-green-200/80 dark:bg-green-500/35",
-  blue:   "bg-blue-200/80 dark:bg-blue-500/35",
-  pink:   "bg-pink-200/80 dark:bg-pink-500/35",
-};
-
-/**
- * Renders a paragraph string with highlights applied as <mark> spans.
- * Occurrence tracking: each highlight stores which Nth occurrence of its text
- * was selected. We find that occurrence in the paragraph and wrap it.
- * Overlapping spans are dropped (last writer wins — shouldn't happen in practice).
- */
 function renderParaWithHighlights(
   paraText: string,
   verseHighlights: Highlight[],
   onHighlightClick: (h: Highlight) => void,
 ): React.ReactNode {
   if (verseHighlights.length === 0) return paraText;
-
-  type Span = { start: number; end: number; h: Highlight };
-  const spans: Span[] = [];
-
-  for (const h of verseHighlights) {
-    let found = 0;
-    let idx = 0;
-    while ((idx = paraText.indexOf(h.selected_text, idx)) !== -1) {
-      if (found === h.selected_occurrence) {
-        spans.push({ start: idx, end: idx + h.selected_text.length, h });
-        break;
-      }
-      found++;
-      idx++;
-    }
-  }
-
+  const spans = resolveHighlightSpans(paraText, verseHighlights);
   if (spans.length === 0) return paraText;
-
-  spans.sort((a, b) => a.start - b.start);
 
   const nodes: React.ReactNode[] = [];
   let pos = 0;
   for (const s of spans) {
-    if (s.start < pos) continue; // skip overlapping
     if (s.start > pos) nodes.push(paraText.slice(pos, s.start));
     nodes.push(
       <mark
-        key={s.h.id}
-        className={`${HIGHLIGHT_BG[s.h.color]} rounded-sm cursor-pointer`}
-        title={s.h.note ?? "Click to add note"}
-        onClick={() => onHighlightClick(s.h)}
+        key={s.highlight.id}
+        className={`${HIGHLIGHT_BG[s.highlight.color]} rounded-sm cursor-pointer`}
+        title={s.highlight.note ?? "Click to add note"}
+        onClick={() => onHighlightClick(s.highlight)}
       >
         {paraText.slice(s.start, s.end)}
+        {s.highlight.note && (
+          <sup className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-white not-italic align-middle">❝</sup>
+        )}
       </mark>
     );
     pos = s.end;
   }
   if (pos < paraText.length) nodes.push(paraText.slice(pos));
-
   return <>{nodes}</>;
+}
+
+// ── Inline note panel ─────────────────────────────────────────────────────────
+
+function InlineNotePanel({
+  activeNote, noteText, savingNote, onNoteChange, onSave, onSkip, onDelete,
+}: {
+  activeNote: Highlight;
+  noteText: string;
+  savingNote: boolean;
+  onNoteChange: (v: string) => void;
+  onSave: () => void;
+  onSkip: () => void;
+  onDelete: () => void;
+})
+{
+  const showSave = noteText.trim().length > 0 || activeNote.note !== null;
+  return (
+    <div
+      className="mt-3 rounded-lg border border-border/60 p-3 text-sm"
+      style={{ background: "var(--color-surface)" }}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-muted italic truncate flex-1 mr-2">
+          &ldquo;{activeNote.selected_text.slice(0, 55)}{activeNote.selected_text.length > 55 ? "…" : ""}&rdquo;
+        </p>
+        <button
+          onClick={onDelete}
+          className="flex items-center gap-1 text-xs text-red-500/70 hover:text-red-500 whitespace-nowrap shrink-0"
+        >
+          <Trash2 className="h-3 w-3" />
+          Remove
+        </button>
+      </div>
+      <textarea
+        className="w-full text-sm bg-transparent border border-border/60 rounded-lg p-2 resize-none focus:outline-none focus:ring-1 focus:ring-accent"
+        placeholder="Add a note (optional)…"
+        rows={2}
+        value={noteText}
+        onChange={(e) => onNoteChange(e.target.value)}
+        autoFocus
+      />
+      <div className="flex items-center justify-end gap-2 mt-2">
+        <button
+          onClick={onSkip}
+          className="text-xs text-muted hover:text-foreground px-3 py-1.5 rounded-lg border border-border"
+        >
+          Skip
+        </button>
+        {showSave && (
+          <button
+            onClick={onSave}
+            disabled={savingNote}
+            className="text-xs bg-accent text-white rounded-lg px-3 py-1.5 hover:bg-accent-hover disabled:opacity-50"
+          >
+            {savingNote ? "Saving…" : noteText.trim() ? "Save note" : "Clear note"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -146,7 +171,7 @@ export default function ChapterReadingPage() {
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [highlightError, setHighlightError] = useState<string | null>(null);
-  const selectionVerseRef = useRef<number | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
@@ -156,7 +181,8 @@ export default function ChapterReadingPage() {
       getScriptureDetail(slug),
       getBookmarksForSlug(slug),
       getHighlightsForChapter(slug, chapter),
-    ]).then(([chapterResult, scriptureResult, bookmarksResult, highlightsResult]) => {
+      getCurrentUserId(),
+    ]).then(([chapterResult, scriptureResult, bookmarksResult, highlightsResult, userIdResult]) => {
       if (chapterResult.status === "rejected" || scriptureResult.status === "rejected") {
         setError("Could not load chapter.");
         return;
@@ -178,6 +204,9 @@ export default function ChapterReadingPage() {
 
       if (highlightsResult.status === "fulfilled") {
         setHighlights(highlightsResult.value);
+      }
+      if (userIdResult.status === "fulfilled") {
+        setCurrentUserId(userIdResult.value);
       }
     }).finally(() => setLoading(false));
   }, [slug, chapter]);
@@ -228,8 +257,6 @@ export default function ChapterReadingPage() {
         if (!verseEl) return;
 
         const verseId = parseInt(verseEl.getAttribute("data-verse-id") ?? "0");
-        selectionVerseRef.current = verseId;
-
         const rect = range.getBoundingClientRect();
         setSelectionToolbar({
           text,
@@ -243,24 +270,51 @@ export default function ChapterReadingPage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setSelectionToolbar(null);
+        setActiveNote(null);
         window.getSelection()?.removeAllRanges();
       }
+    };
+
+    // Clear toolbar when selection is collapsed (user clicked away)
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) setSelectionToolbar(null);
     };
 
     document.addEventListener("mouseup", handleMouseUp);
     document.addEventListener("touchend", handleMouseUp as EventListener);
     document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("selectionchange", handleSelectionChange);
     return () => {
       document.removeEventListener("mouseup", handleMouseUp);
       document.removeEventListener("touchend", handleMouseUp as EventListener);
       document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("selectionchange", handleSelectionChange);
     };
   }, []);
+
+  // Close note panel when clicking outside the verse card that contains it
+  useEffect(() => {
+    if (!activeNote) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      const verseEl = document.querySelector(`[data-verse-id="${activeNote.verse}"]`);
+      if (verseEl && !verseEl.contains(e.target as Node)) {
+        setActiveNote(null);
+      }
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [activeNote]);
 
   // ── Highlight actions ───────────────────────────────────────────────────────
 
   const handleHighlight = async (color: Highlight["color"]) => {
     if (!selectionToolbar) return;
+    if (!currentUserId) {
+      setHighlightError("Sign in to save highlights.");
+      setTimeout(() => setHighlightError(null), 3000);
+      return;
+    }
     const { text, verseId } = selectionToolbar;
     const verse = verses.find((v) => v.verse === verseId);
     if (!verse) return;
@@ -284,28 +338,39 @@ export default function ChapterReadingPage() {
       }
     }
 
-    const normalizedText = normalizeParagraphs(verse.text).join(" ");
-    const hash = simpleHash(normalizedText);
+    // If same text at same occurrence already highlighted, update color instead of duplicating
+    const existing = highlights.find(
+      (h) => h.verse === verseId && h.selected_text === text && h.selected_occurrence === occurrence
+    );
+    if (existing) {
+      setHighlights((prev) => prev.map((h) => h.id === existing.id ? { ...h, color } : h));
+      setSelectionToolbar(null);
+      window.getSelection()?.removeAllRanges();
+      updateHighlightColor(existing.id, color); // fire-and-forget
+      return;
+    }
 
     // Optimistic: show immediately, revert if save fails
     const tempId = `temp-${crypto.randomUUID()}`;
     const optimistic: Highlight = {
       id: tempId, slug, chapter, verse: verseId,
       selected_text: text, selected_occurrence: occurrence,
-      normalized_text_hash: hash, color, note: null,
+      color, note: null,
       created_at: new Date().toISOString(),
     };
     setHighlights((prev) => [...prev, optimistic]);
     setSelectionToolbar(null);
     window.getSelection()?.removeAllRanges();
 
-    const saved = await saveHighlight(slug, chapter, verseId, text, occurrence, hash, color);
+    const saved = await saveHighlight(slug, chapter, verseId, text, occurrence, color);
     if (saved) {
       setHighlights((prev) => prev.map((h) => h.id === tempId ? saved : h));
+      // Auto-open note panel immediately after highlight is saved
+      setActiveNote(saved);
+      setNoteText("");
     } else {
-      // Revert — user likely not logged in or migration not yet run
       setHighlights((prev) => prev.filter((h) => h.id !== tempId));
-      setHighlightError("Sign in to save highlights permanently.");
+      setHighlightError("Could not save highlight — please try again.");
       setTimeout(() => setHighlightError(null), 4000);
     }
   };
@@ -318,10 +383,11 @@ export default function ChapterReadingPage() {
   const handleSaveNote = async () => {
     if (!activeNote) return;
     setSavingNote(true);
+    const newNote = noteText.trim() || null;
     const ok = await updateHighlightNote(activeNote.id, noteText);
     if (ok) {
       setHighlights((prev) =>
-        prev.map((h) => h.id === activeNote.id ? { ...h, note: noteText || null } : h)
+        prev.map((h) => h.id === activeNote.id ? { ...h, note: newNote } : h)
       );
       setActiveNote(null);
     }
@@ -440,7 +506,7 @@ export default function ChapterReadingPage() {
           <div className="h-4 w-px bg-border mx-0.5" />
           <Link
             href={`/ask?draft=${encodeURIComponent(
-              `I was reading ${scriptureName} (Chapter ${chapter}) and came across this passage:\n\n"${selectionToolbar.text.slice(0, 300)}"\n\nMy question: `
+              `[${scriptureName}, Ch.${chapter}] "${selectionToolbar.text.slice(0, 300)}" — `
             )}`}
             className="text-xs text-accent font-medium hover:underline px-0.5 whitespace-nowrap"
             onClick={() => { setSelectionToolbar(null); window.getSelection()?.removeAllRanges(); }}
@@ -464,75 +530,12 @@ export default function ChapterReadingPage() {
         </div>
       )}
 
-      {/* Note editor panel — appears when clicking an existing highlight */}
-      {activeNote && (
-        <div className="fixed bottom-4 left-1/2 z-50 w-full max-w-md -translate-x-1/2 rounded-xl border border-border bg-popover shadow-2xl p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-muted">Note on highlight</span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleDeleteHighlight(activeNote.id)}
-                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600"
-                title="Delete highlight"
-              >
-                <Trash2 className="h-3 w-3" />
-                Delete
-              </button>
-              <button
-                onClick={() => setActiveNote(null)}
-                className="text-muted hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-          <p className="text-xs text-muted/70 italic mb-2 line-clamp-1">
-            &ldquo;{activeNote.selected_text.slice(0, 60)}{activeNote.selected_text.length > 60 ? "…" : ""}&rdquo;
-          </p>
-          <textarea
-            className="w-full text-sm bg-transparent border border-border rounded-lg p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-accent"
-            placeholder="Add a private note…"
-            rows={3}
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            autoFocus
-          />
-          <div className="flex justify-end gap-2 mt-2">
-            <button
-              onClick={() => setActiveNote(null)}
-              className="text-xs text-muted hover:text-foreground px-3 py-1.5 rounded-lg border border-border"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveNote}
-              disabled={savingNote}
-              className="text-xs bg-accent text-white rounded-lg px-3 py-1.5 hover:bg-accent-hover disabled:opacity-50"
-            >
-              {savingNote ? "Saving…" : "Save note"}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center mb-6">
         <Link href={`/read/${slug}`} className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />
           Contents
         </Link>
-        <button
-          onClick={() => verses[0] && handleBookmark(verses[0])}
-          className="rounded-md p-2 text-muted hover:text-accent transition-colors"
-          aria-label="Bookmark this chapter"
-          title="Bookmark chapter start"
-        >
-          {bookmarkedVerses[verses[0]?.verse] ? (
-            <BookmarkCheck className="h-4 w-4 text-accent" />
-          ) : (
-            <Bookmark className="h-4 w-4" />
-          )}
-        </button>
       </div>
 
       {/* Chapter title */}
@@ -561,17 +564,36 @@ export default function ChapterReadingPage() {
           // ── PROSE MODE ────────────────────────────────────────────────────
           if (isProse) {
             const paragraphs = splitIntoParagraphs(verse.text);
+            // Find which paragraph index contains the active note's text (for inline positioning)
+            const activeNoteParaIdx = activeNote?.verse === verse.verse
+              ? paragraphs.findIndex((p) => p.body.includes(activeNote.selected_text))
+              : -1;
+
             return (
               <div key={verse.verse} id={`verse-${verse.verse}`} data-verse-id={verse.verse} className="scroll-mt-20">
                 {paragraphs.map((para, pi) => (
-                  <p key={pi} className="verse-text leading-relaxed text-foreground/90 mb-5">
-                    {para.marker && (
-                      <sup className="mr-1.5 text-[0.65em] font-mono text-muted select-none">
-                        {para.marker}
-                      </sup>
+                  <div key={pi}>
+                    <p className="verse-text leading-relaxed text-foreground/90 mb-5">
+                      {para.marker && (
+                        <sup className="mr-1.5 text-[0.65em] font-mono text-muted select-none">
+                          {para.marker}
+                        </sup>
+                      )}
+                      {renderParaWithHighlights(para.body, verseHighlights, handleHighlightClick)}
+                    </p>
+                    {/* Note panel appears right after the paragraph containing the highlight */}
+                    {pi === activeNoteParaIdx && (
+                      <InlineNotePanel
+                        activeNote={activeNote!}
+                        noteText={noteText}
+                        savingNote={savingNote}
+                        onNoteChange={setNoteText}
+                        onSave={handleSaveNote}
+                        onSkip={() => setActiveNote(null)}
+                        onDelete={() => handleDeleteHighlight(activeNote!.id)}
+                      />
                     )}
-                    {renderParaWithHighlights(para.body, verseHighlights, handleHighlightClick)}
-                  </p>
+                  </div>
                 ))}
 
                 {isExpanded && (
@@ -696,6 +718,19 @@ export default function ChapterReadingPage() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Inline note panel for verse mode */}
+              {activeNote?.verse === verse.verse && (
+                <InlineNotePanel
+                  activeNote={activeNote}
+                  noteText={noteText}
+                  savingNote={savingNote}
+                  onNoteChange={setNoteText}
+                  onSave={handleSaveNote}
+                  onSkip={() => setActiveNote(null)}
+                  onDelete={() => handleDeleteHighlight(activeNote.id)}
+                />
               )}
             </div>
           );

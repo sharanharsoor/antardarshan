@@ -52,10 +52,11 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Start frontend
+# Start frontend — clear .next cache first to prevent stale compiled modules
 echo ""
 echo "  Starting frontend (port 3000)..."
 cd frontend
+rm -rf .next
 npm run dev &
 FRONTEND_PID=$!
 echo "  Frontend PID: $FRONTEND_PID"

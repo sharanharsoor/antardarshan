@@ -5,6 +5,28 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// ── Request cache ─────────────────────────────────────────────────────────────
+// Deduplicates identical GET requests within a 5-minute window.
+// Prevents duplicate network calls during React StrictMode double-render (dev)
+// and during navigation transitions where two components briefly coexist.
+// Only applied to static read-only endpoints (library, scripture, chapter data).
+const _cache = new Map<string, { data: unknown; expiresAt: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function cachedGet<T>(url: string): Promise<T> {
+  const entry = _cache.get(url);
+  if (entry && Date.now() < entry.expiresAt) return entry.data as T;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${res.status} ${url}`);
+  const data: T = await res.json();
+  _cache.set(url, { data, expiresAt: Date.now() + CACHE_TTL });
+  return data;
+}
+
+export function clearApiCache() {
+  _cache.clear();
+}
+
 export interface Citation {
   scripture: string;
   chapter: number;
@@ -175,9 +197,7 @@ export async function queryAI(
 }
 
 export async function getLibrary(): Promise<Scripture[]> {
-  const res = await fetch(`${API_BASE}/api/library`);
-  if (!res.ok) throw new Error(`Library fetch failed: ${res.status}`);
-  const data = await res.json();
+  const data = await cachedGet<{ scriptures: Scripture[] }>(`${API_BASE}/api/library`);
   return data.scriptures;
 }
 
@@ -190,21 +210,15 @@ export interface CorpusStats {
 }
 
 export async function getCorpusStats(): Promise<CorpusStats> {
-  const res = await fetch(`${API_BASE}/api/stats`);
-  if (!res.ok) throw new Error(`Stats fetch failed: ${res.status}`);
-  return res.json();
+  return cachedGet<CorpusStats>(`${API_BASE}/api/stats`);
 }
 
 export async function getScriptureDetail(slug: string): Promise<{ scripture: Scripture; chapters: ChapterSummary[] }> {
-  const res = await fetch(`${API_BASE}/api/library/${encodeURIComponent(slug)}`);
-  if (!res.ok) throw new Error(`Scripture detail failed: ${res.status}`);
-  return res.json();
+  return cachedGet(`${API_BASE}/api/library/${encodeURIComponent(slug)}`);
 }
 
 export async function getChapter(slug: string, chapter: number): Promise<{ scripture: string; chapter: number; verses: Verse[] }> {
-  const res = await fetch(`${API_BASE}/api/library/${encodeURIComponent(slug)}/${chapter}`);
-  if (!res.ok) throw new Error(`Chapter fetch failed: ${res.status}`);
-  return res.json();
+  return cachedGet(`${API_BASE}/api/library/${encodeURIComponent(slug)}/${chapter}`);
 }
 
 export async function getVerseDetail(slug: string, chapter: number, verse: number): Promise<{ verse: Verse; context_verses: Verse[] }> {
