@@ -180,6 +180,74 @@ export async function updateHighlightNote(id: string, note: string): Promise<boo
   } catch { return false; }
 }
 
+// ── Profile helpers (bulk reads for /profile page) ───────────────────────────
+
+export interface ReadingProgress {
+  slug: string;
+  chapter: number;
+  verse: number;
+  updated_at: string;
+}
+
+export async function getAllProgress(): Promise<ReadingProgress[]> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data } = await supabase
+      .from('reading_progress')
+      .select('slug, chapter, verse, updated_at')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
+    return (data ?? []) as ReadingProgress[];
+  } catch { return []; }
+}
+
+export async function getAllBookmarks(): Promise<Bookmark[]> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data } = await supabase
+      .from('bookmarks')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    return (data ?? []) as Bookmark[];
+  } catch { return []; }
+}
+
+export async function getAllHighlights(): Promise<Highlight[]> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data } = await supabase
+      .from('highlights')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    return (data ?? []) as Highlight[];
+  } catch { return []; }
+}
+
+/** Counts queries in the last 30 days from user_query_log. */
+export async function getQueriesThisMonth(): Promise<number> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return 0;
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    const { count } = await supabase
+      .from('user_query_log')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('queried_at', since.toISOString());
+    return count ?? 0;
+  } catch { return 0; }
+}
+
 // ── Auth helper ──────────────────────────────────────────────────────────────
 
 export async function getCurrentUser() {

@@ -153,6 +153,22 @@ export async function deleteConversation(conversationId: string): Promise<boolea
   return !error;
 }
 
+// ── Query log ──────────────────────────────────────────────────────────────────
+
+/** Delete all query-log entries for the current user (metadata only, no content). */
+export async function clearQueryLog(): Promise<boolean> {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) return false;
+  try {
+    const res = await fetch(`${API_BASE}/api/query-log`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${session.access_token}` },
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 // ── Per-user quota ─────────────────────────────────────────────────────────────
 
 export async function getUserQuota(): Promise<UserQuotaStatus | null> {

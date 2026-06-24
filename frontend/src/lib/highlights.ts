@@ -17,12 +17,25 @@ export type HighlightSpan = {
   highlight: Highlight;
 };
 
+/** Collapse all whitespace variants (\r\n, \t, multiple spaces) to a single space. */
+export function normalizeWs(s: string): string {
+  return s.replace(/[\r\n\t]+/g, " ").replace(/  +/g, " ").trim();
+}
+
 /**
  * Given a paragraph text string and the highlights for the containing verse,
  * returns the ordered list of non-overlapping spans to render.
  *
+ * CONTRACT: `paraText` must already be whitespace-normalized (call
+ * `normalizeWs(paraText)` before passing in). The returned span positions are
+ * relative to this normalized string — the caller must use the SAME normalized
+ * string for slicing. `renderParaWithHighlights` does this correctly.
+ *
+ * Only `selected_text` is normalized internally (handles \r\n from browser
+ * selections on Windows). `paraText` is used as-is to keep positions stable.
+ *
  * Rules:
- * - For each highlight, find the Nth occurrence of selected_text in paraText
+ * - For each highlight, find the Nth occurrence of normalized selected_text
  *   where N = selected_occurrence.
  * - Sort by start position.
  * - Overlapping spans are dropped (first-by-position wins).
@@ -34,11 +47,14 @@ export function resolveHighlightSpans(
   const raw: HighlightSpan[] = [];
 
   for (const h of verseHighlights) {
+    // Only normalize selected_text — paraText is pre-normalized by the caller
+    const normalizedSelected = normalizeWs(h.selected_text);
+    if (!normalizedSelected) continue;
     let found = 0;
     let idx = 0;
-    while ((idx = paraText.indexOf(h.selected_text, idx)) !== -1) {
+    while ((idx = paraText.indexOf(normalizedSelected, idx)) !== -1) {
       if (found === h.selected_occurrence) {
-        raw.push({ start: idx, end: idx + h.selected_text.length, highlight: h });
+        raw.push({ start: idx, end: idx + normalizedSelected.length, highlight: h });
         break;
       }
       found++;

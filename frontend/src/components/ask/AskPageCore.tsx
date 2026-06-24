@@ -348,6 +348,9 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
             : m
         )
       );
+      // Notify sidebar to reload — backend auto-titles the conversation after persist_messages,
+      // so by this point the title is in the DB and the sidebar can pick it up.
+      window.dispatchEvent(new CustomEvent("conversation-updated"));
     } catch (err: unknown) {
       const status = (err as { status?: number })?.status;
       const detail = (err as { detail?: { error?: string; message?: string } })?.detail;

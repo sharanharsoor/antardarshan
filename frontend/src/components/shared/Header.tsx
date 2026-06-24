@@ -88,6 +88,14 @@ export function Header() {
                   <div className="px-3 py-2 text-xs text-muted truncate border-b border-border mb-1">
                     {user.email}
                   </div>
+                  <Link
+                    href="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-foreground hover:bg-surface transition-colors"
+                  >
+                    <User className="h-3.5 w-3.5" />
+                    My Journey
+                  </Link>
                   <button
                     onClick={handleSignOut}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-error hover:bg-surface transition-colors"

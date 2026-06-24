@@ -44,9 +44,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <Header />
           <main suppressHydrationWarning className="min-h-[calc(100vh-3.5rem)]">{children}</main>
-          <footer className="border-t border-border py-6 text-center text-sm text-muted">
-            <p>AntarDarshan — Free forever. No ads. Open source.</p>
-          </footer>
         </ThemeProvider>
       </body>
     </html>

@@ -4,14 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import { ArrowLeft, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Share2, MessageCircle, ArrowUp, ArrowDown, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Share2, MessageCircle, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 import { getChapter, getScriptureDetail, explainVerse, type Verse } from "@/lib/api";
 import {
   saveProgress, addBookmark, removeBookmark, getBookmarksForSlug,
   getHighlightsForChapter, saveHighlight, deleteHighlight, updateHighlightNote,
   updateHighlightColor, getCurrentUserId, type Highlight,
 } from "@/lib/supabase-reader";
-import { HIGHLIGHT_BG, resolveHighlightSpans } from "@/lib/highlights";
+import { HIGHLIGHT_BG, resolveHighlightSpans, normalizeWs } from "@/lib/highlights";
 
 // ── Text normalization helpers ────────────────────────────────────────────────
 
@@ -55,13 +55,18 @@ function renderParaWithHighlights(
   onHighlightClick: (h: Highlight) => void,
 ): React.ReactNode {
   if (verseHighlights.length === 0) return paraText;
-  const spans = resolveHighlightSpans(paraText, verseHighlights);
-  if (spans.length === 0) return paraText;
+  // Normalize before passing to resolveHighlightSpans AND before slicing.
+  // resolveHighlightSpans already normalizes internally, but using the same
+  // normalized string for slicing avoids index drift on double-space OCR text
+  // (browser CSS already collapses spaces, so the display is identical).
+  const text = normalizeWs(paraText) || paraText;
+  const spans = resolveHighlightSpans(text, verseHighlights);
+  if (spans.length === 0) return text;
 
   const nodes: React.ReactNode[] = [];
   let pos = 0;
   for (const s of spans) {
-    if (s.start > pos) nodes.push(paraText.slice(pos, s.start));
+    if (s.start > pos) nodes.push(text.slice(pos, s.start));
     nodes.push(
       <mark
         key={s.highlight.id}
@@ -69,7 +74,7 @@ function renderParaWithHighlights(
         title={s.highlight.note ?? "Click to add note"}
         onClick={() => onHighlightClick(s.highlight)}
       >
-        {paraText.slice(s.start, s.end)}
+        {text.slice(s.start, s.end)}
         {s.highlight.note && (
           <sup className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-white not-italic align-middle">❝</sup>
         )}
@@ -77,7 +82,7 @@ function renderParaWithHighlights(
     );
     pos = s.end;
   }
-  if (pos < paraText.length) nodes.push(paraText.slice(pos));
+  if (pos < text.length) nodes.push(text.slice(pos));
   return <>{nodes}</>;
 }
 
@@ -164,8 +169,10 @@ export default function ChapterReadingPage() {
 
   // Highlights state
   const [highlights, setHighlights] = useState<Highlight[]>([]);
+  // selectionToolbar holds the pending highlight before the user confirms Save
   const [selectionToolbar, setSelectionToolbar] = useState<{
     text: string; verseId: number; x: number; y: number;
+    selectedColor: Highlight["color"]; selectionNote: string;
   } | null>(null);
   const [activeNote, setActiveNote] = useState<Highlight | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -258,12 +265,15 @@ export default function ChapterReadingPage() {
 
         const verseId = parseInt(verseEl.getAttribute("data-verse-id") ?? "0");
         const rect = range.getBoundingClientRect();
-        setSelectionToolbar({
+        setSelectionToolbar((prev) => ({
           text,
           verseId,
           x: rect.left + rect.width / 2,
-          y: rect.top - 8,  // viewport-relative — toolbar renders fixed
-        });
+          y: rect.top - 8,
+          // Preserve color choice if user reselects text; default yellow
+          selectedColor: prev?.selectedColor ?? "yellow",
+          selectionNote: prev?.selectionNote ?? "",
+        }));
       }, 10);
     };
 
@@ -275,8 +285,10 @@ export default function ChapterReadingPage() {
       }
     };
 
-    // Clear toolbar when selection is collapsed (user clicked away)
+    // Clear toolbar when selection collapses — but NOT when user is typing
+    // in the note field inside the toolbar (textarea gets focus = selectionchange fires)
     const handleSelectionChange = () => {
+      if (document.activeElement?.tagName === "TEXTAREA") return;
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed) setSelectionToolbar(null);
     };
@@ -308,14 +320,14 @@ export default function ChapterReadingPage() {
 
   // ── Highlight actions ───────────────────────────────────────────────────────
 
-  const handleHighlight = async (color: Highlight["color"]) => {
+  const handleHighlight = async () => {
     if (!selectionToolbar) return;
     if (!currentUserId) {
       setHighlightError("Sign in to save highlights.");
       setTimeout(() => setHighlightError(null), 3000);
       return;
     }
-    const { text, verseId } = selectionToolbar;
+    const { text, verseId, selectedColor: color, selectionNote } = selectionToolbar;
     const verse = verses.find((v) => v.verse === verseId);
     if (!verse) return;
 
@@ -352,10 +364,11 @@ export default function ChapterReadingPage() {
 
     // Optimistic: show immediately, revert if save fails
     const tempId = `temp-${crypto.randomUUID()}`;
+    const note = selectionNote.trim() || null;
     const optimistic: Highlight = {
       id: tempId, slug, chapter, verse: verseId,
       selected_text: text, selected_occurrence: occurrence,
-      color, note: null,
+      color, note,
       created_at: new Date().toISOString(),
     };
     setHighlights((prev) => [...prev, optimistic]);
@@ -364,10 +377,17 @@ export default function ChapterReadingPage() {
 
     const saved = await saveHighlight(slug, chapter, verseId, text, occurrence, color);
     if (saved) {
-      setHighlights((prev) => prev.map((h) => h.id === tempId ? saved : h));
-      // Auto-open note panel immediately after highlight is saved
-      setActiveNote(saved);
-      setNoteText("");
+      const withNote = note ? { ...saved, note } : saved;
+      setHighlights((prev) => prev.map((h) => h.id === tempId ? withNote : h));
+      // Save note — await and revert on failure
+      if (note) {
+        const noteOk = await updateHighlightNote(saved.id, note);
+        if (!noteOk) {
+          setHighlights((prev) => prev.map((h) => h.id === saved.id ? { ...h, note: null } : h));
+          setHighlightError("Highlight saved but note could not be saved — click the highlight to add it again.");
+          setTimeout(() => setHighlightError(null), 5000);
+        }
+      }
     } else {
       setHighlights((prev) => prev.filter((h) => h.id !== tempId));
       setHighlightError("Could not save highlight — please try again.");
@@ -478,48 +498,74 @@ export default function ChapterReadingPage() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 pr-8">
 
-      {/* Floating selection toolbar — fixed to viewport so it follows scroll */}
+      {/* Highlight save panel — explicit Save button, prevents accidental saves */}
       {selectionToolbar && (
         <div
-          className="fixed z-50 flex items-center gap-1.5 rounded-xl border border-border shadow-2xl px-2.5 py-2"
+          className="fixed z-50 w-72 rounded-xl border border-border shadow-2xl p-3"
           style={{
-            left: selectionToolbar.x,
+            left: Math.min(selectionToolbar.x, window.innerWidth - 300),
             top: selectionToolbar.y,
-            transform: "translateX(-50%) translateY(-100%)",
+            transform: "translateY(-100%)",
             background: "var(--color-surface)",
           }}
-          onMouseDown={(e) => e.preventDefault()}
+          onMouseDown={(e) => {
+            // Prevent default only for non-interactive elements so textarea stays focusable
+            if ((e.target as HTMLElement).tagName !== "TEXTAREA") e.preventDefault();
+          }}
         >
-          {(["yellow", "green", "blue", "pink"] as const).map((color) => (
+          {/* Color picker row */}
+          <div className="flex items-center gap-2 mb-2.5">
+            <span className="text-xs text-muted">Color:</span>
+            {(["yellow", "green", "blue", "pink"] as const).map((color) => (
+              <button
+                key={color}
+                onClick={() => setSelectionToolbar((p) => p ? { ...p, selectedColor: color } : p)}
+                className={`h-5 w-5 rounded-full transition-all ${
+                  color === "yellow" ? "bg-yellow-400" :
+                  color === "green"  ? "bg-green-400"  :
+                  color === "blue"   ? "bg-blue-400"   :
+                                       "bg-pink-400"
+                } ${selectionToolbar.selectedColor === color
+                    ? "ring-2 ring-offset-1 ring-accent scale-110"
+                    : "border-2 border-white/60 hover:scale-110"}`}
+                title={color}
+              />
+            ))}
+            <Link
+              href={`/ask?draft=${encodeURIComponent(
+                `[${scriptureName}, Ch.${chapter}] "${selectionToolbar.text.slice(0, 300)}" — `
+              )}`}
+              className="ml-auto text-xs text-accent hover:underline whitespace-nowrap"
+              onClick={() => { setSelectionToolbar(null); window.getSelection()?.removeAllRanges(); }}
+            >
+              ✨ Ask AI
+            </Link>
+          </div>
+
+          {/* Optional note */}
+          <textarea
+            placeholder="Add a note (optional)…"
+            rows={3}
+            value={selectionToolbar.selectionNote}
+            onChange={(e) => setSelectionToolbar((p) => p ? { ...p, selectionNote: e.target.value } : p)}
+            className="w-full text-sm bg-transparent border border-border/60 rounded-lg p-2 resize-none focus:outline-none focus:ring-1 focus:ring-accent mb-2"
+          />
+
+          {/* Save / Cancel */}
+          <div className="flex justify-end gap-2">
             <button
-              key={color}
-              onClick={() => handleHighlight(color)}
-              className={`h-5 w-5 rounded-full border-2 border-white/80 shadow-sm hover:scale-125 transition-transform ${
-                color === "yellow" ? "bg-yellow-400" :
-                color === "green"  ? "bg-green-400"  :
-                color === "blue"   ? "bg-blue-400"   :
-                                     "bg-pink-400"
-              }`}
-              title={`Highlight ${color}`}
-            />
-          ))}
-          <div className="h-4 w-px bg-border mx-0.5" />
-          <Link
-            href={`/ask?draft=${encodeURIComponent(
-              `[${scriptureName}, Ch.${chapter}] "${selectionToolbar.text.slice(0, 300)}" — `
-            )}`}
-            className="text-xs text-accent font-medium hover:underline px-0.5 whitespace-nowrap"
-            onClick={() => { setSelectionToolbar(null); window.getSelection()?.removeAllRanges(); }}
-          >
-            ✨ Ask AI
-          </Link>
-          <button
-            onClick={() => { setSelectionToolbar(null); window.getSelection()?.removeAllRanges(); }}
-            className="ml-0.5 text-muted hover:text-foreground"
-            title="Dismiss"
-          >
-            <X className="h-3 w-3" />
-          </button>
+              onClick={() => { setSelectionToolbar(null); window.getSelection()?.removeAllRanges(); }}
+              className="text-xs text-muted hover:text-foreground px-3 py-1.5 rounded-lg border border-border"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleHighlight}
+              className="text-xs bg-accent text-white rounded-lg px-3 py-1.5 hover:bg-accent-hover"
+            >
+              Save highlight
+            </button>
+          </div>
         </div>
       )}
 

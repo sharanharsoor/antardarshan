@@ -28,11 +28,12 @@ function ConversationItem({
   conv: Conversation;
   currentId?: string;
   onDelete: (id: string) => void;
-  onShare: (id: string) => void;
+  onShare: (id: string) => Promise<boolean>;
   onRename: (id: string, title: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(conv.title || "");
+  const [copied, setCopied] = useState(false);
 
   return (
     <div
@@ -83,11 +84,14 @@ function ConversationItem({
               <Edit2 className="h-3 w-3" />
             </button>
             <button
-              onClick={() => onShare(conv.id)}
+              onClick={async () => {
+                const ok = await onShare(conv.id);
+                if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
+              }}
               className="rounded p-1 text-muted hover:text-foreground"
-              title="Share"
+              title={copied ? "Copied!" : "Share"}
             >
-              <Share2 className="h-3 w-3" />
+              {copied ? <Check className="h-3 w-3 text-success" /> : <Share2 className="h-3 w-3" />}
             </button>
             <button
               onClick={() => onDelete(conv.id)}
@@ -115,7 +119,7 @@ function DateGroup({
   conversations: Conversation[];
   currentId?: string;
   onDelete: (id: string) => void;
-  onShare: (id: string) => void;
+  onShare: (id: string) => Promise<boolean>;
   onRename: (id: string, title: string) => void;
 }) {
   if (!conversations.length) return null;
@@ -150,6 +154,19 @@ export function ConversationSidebar({ currentConversationId, onNewChat }: Conver
 
   useEffect(() => { reload(); }, [reload]);
 
+  // Reload list when active conversation changes — catches newly created conversations
+  // (window.history.replaceState keeps the sidebar mounted so mount-only reload isn't enough)
+  useEffect(() => {
+    if (currentConversationId) reload();
+  }, [currentConversationId, reload]);
+
+  // Reload when an answer completes — picks up auto-generated title from backend
+  useEffect(() => {
+    const handler = () => reload();
+    window.addEventListener("conversation-updated", handler);
+    return () => window.removeEventListener("conversation-updated", handler);
+  }, [reload]);
+
   const handleDelete = async (id: string) => {
     const ok = await deleteConversation(id);
     if (ok) {
@@ -162,9 +179,10 @@ export function ConversationSidebar({ currentConversationId, onNewChat }: Conver
     const url = await shareConversation(id);
     if (url) {
       await navigator.clipboard.writeText(url);
-      alert("Share link copied!");
       reload();
+      return true;
     }
+    return false;
   };
 
   const handleRename = async (id: string, title: string) => {

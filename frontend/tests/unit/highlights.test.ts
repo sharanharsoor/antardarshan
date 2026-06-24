@@ -1,5 +1,31 @@
 import { describe, it, expect } from "vitest";
-import { resolveHighlightSpans } from "@/lib/highlights";
+import { resolveHighlightSpans, normalizeWs } from "@/lib/highlights";
+
+describe("normalizeWs", () => {
+  it("collapses \\r\\n to a single space", () => {
+    expect(normalizeWs("word1\r\nword2")).toBe("word1 word2");
+  });
+
+  it("collapses \\n to a single space", () => {
+    expect(normalizeWs("word1\nword2")).toBe("word1 word2");
+  });
+
+  it("collapses tabs to a single space", () => {
+    expect(normalizeWs("word1\tword2")).toBe("word1 word2");
+  });
+
+  it("collapses multiple spaces to one", () => {
+    expect(normalizeWs("word1  word2")).toBe("word1 word2");
+  });
+
+  it("trims leading and trailing whitespace", () => {
+    expect(normalizeWs("  hello world  ")).toBe("hello world");
+  });
+
+  it("leaves already-clean strings unchanged", () => {
+    expect(normalizeWs("clean text here")).toBe("clean text here");
+  });
+});
 import type { Highlight } from "@/lib/supabase-reader";
 
 const makeHighlight = (overrides: Partial<Highlight> = {}): Highlight => ({
@@ -83,5 +109,14 @@ describe("resolveHighlightSpans", () => {
     const text = "Knowing yourself is the beginning of wisdom";
     const spans = resolveHighlightSpans(text, [h]);
     expect(spans[0].end).toBe(text.length);
+  });
+
+  it("matches when selected_text has \\r\\n but paraText has space (cross-platform selection)", () => {
+    // selected_text captured with Windows line ending, paraText is normalized
+    const h = makeHighlight({ selected_text: "the wise\r\nman" });
+    const text = "The path of the wise man leads to peace";
+    const spans = resolveHighlightSpans(text, [h]);
+    expect(spans).toHaveLength(1);
+    expect(text.slice(spans[0].start, spans[0].end)).toBe("the wise man");
   });
 });

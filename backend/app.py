@@ -568,6 +568,31 @@ async def delete_conversation_endpoint(request: Request, conversation_id: str):
     return {"ok": success}
 
 
+@app.delete("/api/query-log")
+@limiter.limit("10/hour")
+async def delete_query_log(request: Request):
+    """
+    Delete all query-log entries for the authenticated user.
+    This removes activity metadata (mode, model, timestamp) kept for quota.
+    Does NOT affect conversations or messages — those are deleted separately.
+    Requires valid JWT.
+    """
+    from backend.supabase_client import get_supabase, verify_jwt
+    from fastapi import HTTPException
+    user_id = verify_jwt(request.headers.get("Authorization"))
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    try:
+        result = sb.table("user_query_log").delete().eq("user_id", user_id).execute()
+        deleted = len(result.data) if result.data else 0
+        return {"ok": True, "deleted": deleted}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Could not clear query log: {e}")
+
+
 @app.post("/api/feedback")
 @limiter.limit("120/hour")
 async def submit_feedback(request: Request, req: FeedbackRequest):

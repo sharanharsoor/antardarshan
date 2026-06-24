@@ -93,17 +93,24 @@ This session built the entire V1 feature set from scratch:
 
 ## What Is Pending ❌
 
-### Tier 2 (planned, not yet built)
+### Tier 2 — completed in Week 4–5 sessions (Jun 22–24, 2026)
+| Feature | Status |
+|---|---|
+| Highlights + Notes (color picker, note panel, occurrence-aware matching) | ✅ |
+| Select text → Ask AI (reading page toolbar + Q&A floating button) | ✅ |
+| User Profile page (`/profile`) — reading, bookmarks, highlights, conversations, stats | ✅ |
+| `DELETE /api/query-log` — user data control | ✅ |
+| Landing page single-screen layout | ✅ |
+
+### Tier 2 — still pending
 | Feature | Priority | Notes |
 |---|---|---|
-| **Highlights + Notes** | High | Schema in Supabase, implementation needed |
-| **Select text → Ask AI** | High | Bridges reading and Q&A |
-| **User Profile page** (`/profile`) | High | Reading progress %, bookmarks, highlights, stats |
-| **Text issue reporting** (UI) | Medium | Schema exists, modal + backend endpoint needed |
-| **Book-level feedback** (library) | Medium | Schema exists, UI flag not built |
-| **Contextual re-indexing (LLM)** | Medium | Template done; LLM-generated context would give +20% more |
+| **Text issue reporting** (UI) | Medium | Schema + `issue_reports` table exist; needs flag button in reading mode + `POST /api/issues` |
+| **Book-level feedback** (library) | Medium | Schema + `feedback_books` table exist; needs thumbs on library cards + `POST /api/feedback/book` |
+| **Admin review tools** | Medium | `ingestion/admin.py` has corpus ops; needs `python -m ingestion.admin issues` and `feedback-books` commands |
+| **Profile pagination** | Low | Currently loads all items; fine up to ~200, add pagination at scale |
+| **Contextual re-indexing (LLM)** | Medium | Template done; LLM-generated context would give +20% retrieval improvement |
 | **HyDE retrieval** | Low | For abstract/emotional queries |
-| **Daily wisdom backend endpoint** | ✅ Done | Already built |
 
 ### Deployment (not yet done)
 | Task | Notes |
@@ -1193,19 +1200,21 @@ Every feature must work on 375px width:
 - [ ] Text issue reporting (reading mode)
 - [ ] Feedback analysis view (admin CLI command)
 
-### Week 4: Highlights + Select-to-Ask
-- [ ] Text selection detection + floating toolbar
-- [ ] Highlight save + render (yellow/green/blue/pink)
-- [ ] Note editor inline
-- [ ] Select text → Ask AI routing
+### Week 4: Highlights + Select-to-Ask ✅ (Jun 22–23, 2026)
+- [x] Color-picker toolbar + Save highlight panel
+- [x] Highlight render with occurrence-aware matching + whitespace normalization
+- [x] Inline note panel (auto-opens after save)
+- [x] Select text → Ask AI (reading page + Q&A floating button)
 
-### Week 5: Profile Page
-- [ ] `/profile` route
-- [ ] Reading progress with percentage
-- [ ] Bookmarks list
-- [ ] Highlights list with notes
-- [ ] Conversation history
-- [ ] Stats summary
+### Week 5: Profile Page ✅ (Jun 24, 2026)
+- [x] `/profile` route with auth gate
+- [x] Reading progress with % bars
+- [x] Bookmarks tab (grouped by scripture, delete)
+- [x] Highlights tab (grouped by scripture, color filter, delete)
+- [x] Conversations tab (delete with confirmation)
+- [x] Stats summary (Books completed, Bookmarks, Highlights, Queries)
+- [x] `DELETE /api/query-log` for user data control
+- [x] Single-screen landing page redesign
 
 ### Week 6: Production Deploy
 - [ ] Hetzner VPS setup
