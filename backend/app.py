@@ -314,8 +314,18 @@ async def query_endpoint(request: Request, req: QueryRequest):
     # Token-aware context via llm-smartmem — stays within Groq TPM budget
     history = await sessions.get_context(session_id)
 
+    from backend.query_analysis import is_conversational_followup
+
     mode = detect_mode(req.query)
-    hits = search(req.query, top_k=req.top_k)
+
+    # Skip RAG retrieval for conversational follow-ups (summaries, opinions, clarifications).
+    # These should be answered from conversation history, not new scripture retrieval.
+    if is_conversational_followup(req.query) and history:
+        hits = []
+        mode = "conversational"
+    else:
+        hits = search(req.query, top_k=req.top_k)
+
     use_deep = (mode in ("comparison", "well_being"))
 
     answer, trace_id, model_used, tokens_used = generate_response(
@@ -721,7 +731,14 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
 
     history = await sessions.get_context(session_id)
     mode = detect_mode(req.query)
-    hits = search(req.query, top_k=req.top_k)
+
+    from backend.query_analysis import is_conversational_followup
+    if is_conversational_followup(req.query) and history:
+        hits = []
+        mode = "conversational"
+    else:
+        hits = search(req.query, top_k=req.top_k)
+
     use_deep = mode in ("comparison", "well_being")
 
     try:

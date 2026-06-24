@@ -72,6 +72,41 @@ class QueryIntent:
     detected_terms: list[str] = field(default_factory=list)  # Sanskrit/key terms detected
 
 
+_FOLLOWUP_PATTERNS = [
+    r"\byour\s+(opinion|view|thought|take|conclusion|answer|perspective|summary)\b",
+    r"\bwhat do you think\b",
+    r"\bin your (view|opinion|words|perspective)\b",
+    r"\bsummar(ize|y|ise|izing)\b",
+    r"\baccording to you\b",
+    r"\b(end |final |overall |in |your )conclusion\b",
+    r"\bwhat('s| is) the (point|takeaway|gist|essence|bottom line)\b",
+    r"\bcan you (explain|clarify|elaborate) (more|further|that|this)\b",
+    r"\btell me more\b",
+    r"\bexplain (more|further|that|this) (please|to me)?\b",
+    r"\bwhat does that mean\b",
+    r"\bwhat are you saying\b",
+    r"\bso what\b",
+    r"\bi (don't|do not) understand\b",
+    r"\bin simple (words|terms|language)\b",
+    r"\bsimplify\b",
+    r"\bcan you rephrase\b",
+]
+
+def is_conversational_followup(query: str) -> bool:
+    """
+    Returns True when the query is a conversational follow-up (summary, opinion,
+    clarification) rather than a new philosophical question requiring RAG retrieval.
+    For these queries, the model should answer from conversation history alone.
+    """
+    q = query.lower().strip()
+    # Very short queries with no philosophical content are almost always follow-ups
+    if len(q.split()) <= 4 and not any(
+        kw in q for kw in ("what", "how", "why", "who", "which", "when", "define", "explain", "is", "are")
+    ):
+        return True
+    return any(re.search(p, q) for p in _FOLLOWUP_PATTERNS)
+
+
 def analyze_query(query: str) -> QueryIntent:
     """Analyze a user query and return structured intent + filters."""
     q_lower = query.lower()
