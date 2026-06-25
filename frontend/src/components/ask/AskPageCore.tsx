@@ -11,7 +11,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import { queryAIStream, getQuotaStatus, deleteSession, scriptureToSlug, type QueryResponse, type QuotaStatus } from "@/lib/api";
 import { createClient } from "@/utils/supabase/client";
-import { createConversation, loadConversation, shareConversation, getUserQuota, type UserQuotaStatus } from "@/lib/conversations";
+import { createConversation, loadConversation, shareConversation, getUserQuota, getConversationFeedback, type UserQuotaStatus } from "@/lib/conversations";
 import { ConversationSidebar } from "./ConversationSidebar";
 import type { User } from "@supabase/supabase-js";
 
@@ -63,6 +63,11 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
   const [copied, setCopied] = useState(false);
   const [copiedMsgIdx, setCopiedMsgIdx] = useState<number | null>(null);
   const [logContent, setLogContent] = useState<boolean>(false);
+  // Pending feedback: user clicked thumbs but hasn't submitted comment yet
+  const [feedbackPending, setFeedbackPending] = useState<{
+    msgIdx: number; rating: 1 | -1; traceId?: string | null; messageId?: string | null;
+  } | null>(null);
+  const [feedbackComment, setFeedbackComment] = useState("");
   // Quote-and-ask: text selected inside an AI response — tracks text + toolbar position
   const [selectedResponseText, setSelectedResponseText] = useState<{
     text: string; x: number; y: number;
@@ -179,18 +184,27 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
       const msgs: Message[] = data.messages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
-        // Citations stored in DB include the readable flag (set by backend on persist).
-        // Spread preserves readable: false for RAG-only sources.
         citations: m.citations?.map((c: { scripture: string; chapter: number; verse: number; translator: string; readable?: boolean }) => ({
           ...c,
-          readable: c.readable !== false,  // default true if missing (old data), honor false
+          readable: c.readable !== false,
         })) ?? undefined,
         mode: m.mode ?? undefined,
         messageId: m.role === "assistant" ? (m.id ?? null) : null,
         model: m.model ?? null,
         tokensUsed: m.tokens_used ?? null,
-        feedback: null,
+        feedback: null,  // will be populated below
       }));
+
+      // Restore feedback ratings the user previously submitted for this conversation
+      getConversationFeedback(propConversationId).then((feedbackMap) => {
+        if (Object.keys(feedbackMap).length === 0) return;
+        setMessages((prev) => prev.map((m) =>
+          m.messageId && feedbackMap[m.messageId]
+            ? { ...m, feedback: feedbackMap[m.messageId] }
+            : m
+        ));
+      }).catch(() => {});
+
       setMessages(msgs);
       setLoadingConversation(false);
     });
@@ -380,8 +394,18 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
     }
   };
 
-  const handleFeedback = async (msgIdx: number, rating: 1 | -1, traceId?: string | null) => {
+  const handleFeedbackClick = (msgIdx: number, rating: 1 | -1, traceId?: string | null, messageId?: string | null) => {
+    // Optimistic: show the rating immediately
     setMessages((prev) => prev.map((m, i) => i === msgIdx ? { ...m, feedback: rating } : m));
+    // Open comment box (optional — user can skip)
+    setFeedbackPending({ msgIdx, rating, traceId, messageId });
+    setFeedbackComment("");
+  };
+
+  const submitFeedback = async (comment: string) => {
+    if (!feedbackPending) return;
+    const { msgIdx, rating, traceId, messageId } = feedbackPending;
+    setFeedbackPending(null);
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
@@ -391,9 +415,10 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
         body: JSON.stringify({
           trace_id: traceId,
           rating,
+          comment: comment.trim() || null,
           mode: messages[msgIdx]?.mode,
           conversation_id: conversationId,
-          message_id: messages[msgIdx]?.messageId ?? null,
+          message_id: messageId ?? null,
         }),
       });
     } catch { /* non-critical */ }
@@ -622,21 +647,49 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
                       </div>
                     )}
 
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="relative flex items-center gap-2 mt-2">
                       <button
-                        onClick={() => handleFeedback(i, 1, msg.traceId)}
+                        onClick={() => msg.feedback !== 1 && handleFeedbackClick(i, 1, msg.traceId, msg.messageId)}
                         className={`rounded p-1 transition-colors ${msg.feedback === 1 ? "text-success" : "text-muted hover:text-success"}`}
                         aria-label="Helpful"
+                        title={msg.feedback === 1 ? "You rated this helpful" : "Mark helpful"}
                       >
                         <ThumbsUp className="h-3.5 w-3.5" />
                       </button>
                       <button
-                        onClick={() => handleFeedback(i, -1, msg.traceId)}
+                        onClick={() => msg.feedback !== -1 && handleFeedbackClick(i, -1, msg.traceId, msg.messageId)}
                         className={`rounded p-1 transition-colors ${msg.feedback === -1 ? "text-error" : "text-muted hover:text-error"}`}
                         aria-label="Not helpful"
+                        title={msg.feedback === -1 ? "You rated this unhelpful" : "Mark unhelpful"}
                       >
                         <ThumbsDown className="h-3.5 w-3.5" />
                       </button>
+
+                      {/* Optional comment card — appears below the voted message */}
+                      {feedbackPending?.msgIdx === i && (
+                        <div className="absolute left-0 right-0 mt-1 top-full z-10 rounded-xl border border-border shadow-lg p-3"
+                          style={{ background: "var(--color-surface)" }}>
+                          <p className="text-xs text-muted mb-2">
+                            {feedbackPending.rating === 1 ? "What was helpful? (optional)" : "What went wrong? (optional)"}
+                          </p>
+                          <textarea
+                            className="w-full text-xs bg-transparent border border-border/60 rounded-lg p-2 resize-none focus:outline-none focus:ring-1 focus:ring-accent"
+                            placeholder={feedbackPending.rating === 1 ? "Great citations, clear explanation..." : "Wrong scripture, missed the point..."}
+                            rows={2}
+                            value={feedbackComment}
+                            onChange={(e) => setFeedbackComment(e.target.value)}
+                            autoFocus
+                          />
+                          <div className="flex justify-end gap-2 mt-2">
+                            <button onClick={() => submitFeedback("")} className="text-xs text-muted hover:text-foreground px-2 py-1">
+                              Skip
+                            </button>
+                            <button onClick={() => submitFeedback(feedbackComment)} className="text-xs bg-accent text-white rounded px-3 py-1 hover:bg-accent-hover">
+                              Submit
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       <button
                         onClick={() => handleCopyResponse(msg.content, i)}
                         className="rounded p-1 text-muted hover:text-foreground transition-colors"

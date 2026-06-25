@@ -169,6 +169,35 @@ export async function clearQueryLog(): Promise<boolean> {
   } catch { return false; }
 }
 
+// ── Feedback state ─────────────────────────────────────────────────────────────
+
+/** Fetch ratings the current user has submitted for messages in a conversation. */
+export async function getConversationFeedback(
+  conversationId: string,
+): Promise<Record<string, 1 | -1>> {
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return {};
+
+    const { data } = await supabase
+      .from("feedback_responses")
+      .select("message_id, rating")
+      .eq("conversation_id", conversationId)
+      .eq("user_id", session.user.id)
+      .order("created_at", { ascending: false }); // newest first — last rating wins if dupes exist
+
+    // Rows are ordered newest-first (DESC). First occurrence per message_id = most recent rating.
+    const map: Record<string, 1 | -1> = {};
+    for (const row of data ?? []) {
+      if (row.message_id && !(row.message_id in map)) {
+        map[row.message_id] = row.rating as 1 | -1;
+      }
+    }
+    return map;
+  } catch { return {}; }
+}
+
 // ── Per-user quota ─────────────────────────────────────────────────────────────
 
 export async function getUserQuota(): Promise<UserQuotaStatus | null> {

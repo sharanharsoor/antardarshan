@@ -666,13 +666,24 @@ async def submit_feedback(request: Request, req: FeedbackRequest):
                 if msg_check.data:
                     verified_msg_id = req.message_id
 
-            sb.table("feedback_responses").insert({
-                "user_id": user_id,
-                "conversation_id": verified_conv_id,
-                "message_id": verified_msg_id,
-                "rating": req.rating,
-                "comment": req.comment,
-            }).execute()
+            # Upsert on (user_id, message_id) so re-rating updates the existing row
+            # rather than creating duplicates. Falls back to insert for null message_id.
+            if verified_msg_id:
+                sb.table("feedback_responses").upsert({
+                    "user_id": user_id,
+                    "conversation_id": verified_conv_id,
+                    "message_id": verified_msg_id,
+                    "rating": req.rating,
+                    "comment": req.comment,
+                }, on_conflict="user_id,message_id").execute()
+            else:
+                sb.table("feedback_responses").insert({
+                    "user_id": user_id,
+                    "conversation_id": verified_conv_id,
+                    "message_id": None,
+                    "rating": req.rating,
+                    "comment": req.comment,
+                }).execute()
         except Exception as e:
             print(f"  Feedback Supabase error (non-critical): {e}")
 
