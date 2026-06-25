@@ -99,6 +99,8 @@ def is_conversational_followup(query: str) -> bool:
     For these queries, the model should answer from conversation history alone.
     """
     q = query.lower().strip()
+    if not q:
+        return False  # empty query is not a follow-up — will be rejected by the endpoint
     # Very short queries with no philosophical content are almost always follow-ups
     if len(q.split()) <= 4 and not any(
         kw in q for kw in ("what", "how", "why", "who", "which", "when", "define", "explain", "is", "are")

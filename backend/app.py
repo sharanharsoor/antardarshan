@@ -838,3 +838,320 @@ async def explain_verse(request: Request, req: ExplainRequest):
         use_deep_model=False,
     )
     return {"verse": verse, "explanation": explanation_text, "context_verses": context_verses}
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Wisdom Wall endpoints
+# ══════════════════════════════════════════════════════════════════════
+
+class WisdomPostRequest(BaseModel):
+    content: str
+    contact_email: str | None = None
+    contact_phone: str | None = None
+
+
+class WisdomVoteRequest(BaseModel):
+    vote: str  # "up" or "down"
+
+
+class DisplayNameRequest(BaseModel):
+    display_name: str
+
+
+@app.get("/api/wisdom")
+@limiter.limit("120/minute")
+async def list_wisdom_posts(
+    request: Request,
+    page: int = 1,
+    per_page: int = 10,
+    user_display_name: str | None = None,
+):
+    """
+    Public feed. Paginated by creation date (newest first), 10 per page.
+    Optionally filter by user display_name.
+    """
+    from backend.supabase_client import get_supabase, verify_jwt
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database unavailable")
+
+    # Clamp pagination to safe bounds
+    page     = max(1, page)
+    per_page = max(1, min(50, per_page))
+
+    # Determine authenticated user so we can mark is_owner on each post
+    auth_user_id = verify_jwt(request.headers.get("Authorization"))
+
+    offset = (page - 1) * per_page
+    # Include user_id so we can compute is_owner; it won't be forwarded to the client
+    q = sb.table("wisdom_posts") \
+        .select("id, user_id, display_name, content, contact_email, contact_phone, "
+                "contact_hidden_at, upvotes, downvotes, is_edited, created_at, updated_at") \
+        .eq("is_removed", False) \
+        .eq("moderation_status", "approved") \
+        .order("created_at", desc=True) \
+        .range(offset, offset + per_page - 1)
+
+    if user_display_name:
+        q = q.ilike("display_name", user_display_name)
+
+    result = q.execute()
+    posts = result.data or []
+
+    for p in posts:
+        # Mark ownership via verified user_id, never expose raw user_id
+        p["is_owner"] = bool(auth_user_id and p.get("user_id") == auth_user_id)
+        del p["user_id"]
+        # Mask contact info once past retention window
+        if p.get("contact_hidden_at"):
+            p["contact_email"] = None
+            p["contact_phone"] = None
+
+    return {"posts": posts, "page": page, "per_page": per_page}
+
+
+@app.post("/api/wisdom")
+@limiter.limit("10/minute")
+async def create_wisdom_post(request: Request, req: WisdomPostRequest):
+    """Create a Wisdom Wall post. Runs LLM moderation. Auth required."""
+    from backend.supabase_client import get_supabase, verify_jwt
+    from backend.wisdom import (
+        moderate_post, get_post_count_today, get_mod_attempts_today,
+        increment_mod_attempts, MAX_POSTS_PER_DAY, MAX_MOD_ATTEMPTS_PER_DAY, MAX_POST_CHARS,
+    )
+
+    user_id = verify_jwt(request.headers.get("Authorization"))
+    if not user_id:
+        raise HTTPException(401, "Authentication required")
+
+    content = req.content.strip()
+    if not content:
+        raise HTTPException(400, "Content cannot be empty")
+    if len(content) > MAX_POST_CHARS:
+        raise HTTPException(400, f"Content exceeds {MAX_POST_CHARS} characters")
+
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database unavailable")
+
+    # Rate limit: MAX_POSTS_PER_DAY posts per day (see backend/wisdom.py)
+    posts_today = get_post_count_today(sb, user_id)
+    if posts_today >= MAX_POSTS_PER_DAY:
+        raise HTTPException(429, detail={"error": "daily_post_limit",
+            "used": posts_today, "limit": MAX_POSTS_PER_DAY,
+            "message": f"You can post at most {MAX_POSTS_PER_DAY} times per day. Come back tomorrow."})
+
+    # Rate limit: max moderation attempts per day
+    attempts_used = get_mod_attempts_today(sb, user_id)
+    if attempts_used >= MAX_MOD_ATTEMPTS_PER_DAY:
+        raise HTTPException(429, detail={"error": "moderation_limit",
+            "used": attempts_used, "limit": MAX_MOD_ATTEMPTS_PER_DAY,
+            "message": f"You've used all {MAX_MOD_ATTEMPTS_PER_DAY} submission attempts for today. Come back tomorrow."})
+
+    # Fetch display name
+    profile = sb.table("user_profiles").select("display_name") \
+        .eq("user_id", user_id).limit(1).execute()
+    if not profile.data:
+        raise HTTPException(400, detail={"error": "no_display_name",
+            "message": "Set a display name before posting."})
+    display_name = profile.data[0]["display_name"]
+
+    # LLM moderation (always increments the attempt counter)
+    increment_mod_attempts(sb, user_id)
+    approved, reason = moderate_post(content)
+
+    if not approved:
+        return {"status": "rejected", "reason": reason,
+                "message": f"Post rejected: {reason}. Please review the Wisdom Wall guidelines."}
+
+    # Insert post
+    row = sb.table("wisdom_posts").insert({
+        "user_id":       user_id,
+        "display_name":  display_name,
+        "content":       content,
+        "contact_email": req.contact_email or None,
+        "contact_phone": req.contact_phone or None,
+        "moderation_status": "approved",
+    }).select().execute()
+
+    post_data = row.data[0] if row.data else None
+    return {"status": "approved", "post": post_data}
+
+
+@app.patch("/api/wisdom/{post_id}")
+@limiter.limit("20/minute")
+async def edit_wisdom_post(request: Request, post_id: str, req: WisdomPostRequest):
+    """Edit own post. Re-runs LLM moderation. Counts against daily attempt limit."""
+    from datetime import datetime, timezone
+    from backend.supabase_client import get_supabase, verify_jwt
+    from backend.wisdom import (
+        moderate_post, get_mod_attempts_today, increment_mod_attempts,
+        MAX_MOD_ATTEMPTS_PER_DAY, MAX_POST_CHARS,
+    )
+
+    user_id = verify_jwt(request.headers.get("Authorization"))
+    if not user_id:
+        raise HTTPException(401, "Authentication required")
+
+    content = req.content.strip()
+    if not content:
+        raise HTTPException(400, "Content cannot be empty")
+    if len(content) > MAX_POST_CHARS:
+        raise HTTPException(400, f"Content exceeds {MAX_POST_CHARS} characters")
+
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database unavailable")
+
+    # Verify ownership
+    existing = sb.table("wisdom_posts").select("user_id") \
+        .eq("id", post_id).limit(1).execute()
+    if not existing.data or existing.data[0]["user_id"] != user_id:
+        raise HTTPException(404, "Post not found")
+
+    if get_mod_attempts_today(sb, user_id) >= MAX_MOD_ATTEMPTS_PER_DAY:
+        raise HTTPException(429, detail={"error": "moderation_limit",
+            "message": "Moderation limit reached. Try again tomorrow."})
+
+    increment_mod_attempts(sb, user_id)
+    approved, reason = moderate_post(content)
+
+    if not approved:
+        return {"status": "rejected", "reason": reason,
+                "message": f"Edit rejected: {reason}. Original post unchanged."}
+
+    row = sb.table("wisdom_posts").update({
+        "content":       content,
+        "contact_email": req.contact_email or None,
+        "contact_phone": req.contact_phone or None,
+        "is_edited":     True,
+        "updated_at":    datetime.now(timezone.utc).isoformat(),
+    }).eq("id", post_id).select().execute()
+
+    post_data = row.data[0] if row.data else None
+    return {"status": "approved", "post": post_data}
+
+
+@app.delete("/api/wisdom/{post_id}")
+@limiter.limit("20/minute")
+async def delete_wisdom_post(request: Request, post_id: str):
+    """Delete own post (hard delete)."""
+    from backend.supabase_client import get_supabase, verify_jwt
+
+    user_id = verify_jwt(request.headers.get("Authorization"))
+    if not user_id:
+        raise HTTPException(401, "Authentication required")
+
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database unavailable")
+
+    existing = sb.table("wisdom_posts").select("user_id") \
+        .eq("id", post_id).limit(1).execute()
+    if not existing.data or existing.data[0]["user_id"] != user_id:
+        raise HTTPException(404, "Post not found")
+
+    sb.table("wisdom_posts").delete().eq("id", post_id).execute()
+    return {"ok": True}
+
+
+@app.post("/api/wisdom/{post_id}/vote")
+@limiter.limit("60/minute")
+async def vote_wisdom_post(request: Request, post_id: str, req: WisdomVoteRequest):
+    """Upvote or downvote a post. Toggle off by voting same direction twice."""
+    from backend.supabase_client import get_supabase, verify_jwt
+
+    if req.vote not in ("up", "down"):
+        raise HTTPException(400, "vote must be 'up' or 'down'")
+
+    user_id = verify_jwt(request.headers.get("Authorization"))
+    if not user_id:
+        raise HTTPException(401, "Authentication required")
+
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database unavailable")
+
+    result = sb.rpc("cast_wisdom_vote", {
+        "p_post_id": post_id,
+        "p_user_id": user_id,
+        "p_vote":    req.vote,
+    }).execute()
+
+    action = result.data if result.data else "updated"
+    return {"ok": True, "action": action}
+
+
+@app.get("/api/wisdom/me/display-name")
+@limiter.limit("60/minute")
+async def get_display_name(request: Request):
+    """Get the current user's Wisdom Wall display name."""
+    from backend.supabase_client import get_supabase, verify_jwt
+
+    user_id = verify_jwt(request.headers.get("Authorization"))
+    if not user_id:
+        raise HTTPException(401, "Authentication required")
+
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database unavailable")
+
+    row = sb.table("user_profiles").select("display_name") \
+        .eq("user_id", user_id).limit(1).execute()
+    return {"display_name": row.data[0]["display_name"] if row.data else None}
+
+
+@app.put("/api/wisdom/me/display-name")
+@limiter.limit("10/minute")
+async def set_display_name(request: Request, req: DisplayNameRequest):
+    """Set or update the Wisdom Wall display name (one per account)."""
+    from backend.supabase_client import get_supabase, verify_jwt
+
+    user_id = verify_jwt(request.headers.get("Authorization"))
+    if not user_id:
+        raise HTTPException(401, "Authentication required")
+
+    name = req.display_name.strip()
+    if not name or len(name) > 50:
+        raise HTTPException(400, "Display name must be 1–50 characters")
+
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database unavailable")
+
+    try:
+        sb.table("user_profiles").upsert(
+            {"user_id": user_id, "display_name": name},
+            on_conflict="user_id",
+        ).execute()
+    except Exception as e:
+        if "unique" in str(e).lower() or "duplicate" in str(e).lower():
+            raise HTTPException(409, detail={"error": "name_taken",
+                "message": f"'{name}' is already taken. Please choose a different display name."})
+        raise HTTPException(503, "Could not save display name")
+    return {"ok": True, "display_name": name}
+
+
+@app.post("/api/wisdom/cron/maintenance")
+@limiter.limit("5/hour")
+async def wisdom_cron_maintenance(request: Request):
+    """
+    Daily maintenance: hide old contact info + auto-remove high-downvote posts.
+    Protected by a secret header in production (add CRON_SECRET to .env).
+    """
+    from backend.supabase_client import get_supabase
+    from backend.wisdom import run_daily_maintenance
+
+    cron_secret = os.getenv("CRON_SECRET")
+    if not cron_secret:
+        raise HTTPException(503, "CRON_SECRET not configured — set it in .env before using this endpoint")
+    provided = request.headers.get("X-Cron-Secret")
+    if provided != cron_secret:
+        raise HTTPException(403, "Invalid cron secret")
+
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(503, "Database unavailable")
+
+    result = run_daily_maintenance(sb)
+    return {"ok": True, **result}

@@ -59,28 +59,35 @@ export function Header() {
         </Link>
 
         <nav className="flex items-center gap-4">
-          <Link href="/ask" className="text-sm text-muted hover:text-foreground transition-colors">
-            Ask
-          </Link>
-          <Link href="/library" className="text-sm text-muted hover:text-foreground transition-colors">
-            Library
-          </Link>
-          <Link href="/about" className="text-sm text-muted hover:text-foreground transition-colors">
-            About
-          </Link>
+          {[
+            { href: "/ask",     label: "Ask" },
+            { href: "/library", label: "Library" },
+            { href: "/wisdom",  label: "Wisdom Wall" },
+            { href: "/about",   label: "About" },
+          ].map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className="text-sm text-muted hover:text-foreground border border-border hover:border-accent/40 rounded-full px-3 py-1.5 transition-colors whitespace-nowrap"
+            >
+              {label}
+            </Link>
+          ))}
+
+          {/* Thin separator between nav and identity controls */}
+          <div className="h-5 w-px bg-border/60 mx-0.5" />
 
           {/* Auth */}
           {user ? (
               <div className="relative" data-account-menu>
+              {/* Avatar circle with initial — standard identity control pattern */}
               <button
                 onClick={() => setMenuOpen((o) => !o)}
-                className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1.5 text-xs text-muted hover:border-accent/40 hover:text-foreground transition-colors"
+                className="h-8 w-8 rounded-full bg-accent text-white text-sm font-semibold flex items-center justify-center hover:bg-accent-hover transition-colors shrink-0"
                 aria-label="Account menu"
+                title={user.email ?? "Account"}
               >
-                <User className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline max-w-[100px] truncate">
-                  {user.email?.split("@")[0]}
-                </span>
+                {(user.email?.[0] ?? "?").toUpperCase()}
               </button>
 
               {menuOpen && (
