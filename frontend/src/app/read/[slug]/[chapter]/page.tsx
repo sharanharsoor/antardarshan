@@ -532,9 +532,19 @@ export default function ChapterReadingPage() {
               />
             ))}
             <Link
-              href={`/ask?draft=${encodeURIComponent(
-                `[${scriptureName}, Ch.${chapter}] "${selectionToolbar.text.slice(0, 300)}" — `
-              )}`}
+              href={(() => {
+                // Include the full verse text (not just the selection fragment) so the LLM
+                // has proper context. The selection is highlighted within the full verse.
+                const verse = verses.find((v) => v.verse === selectionToolbar.verseId);
+                const fullVerseText = verse ? verse.text.replace(/\n/g, " ").slice(0, 600) : selectionToolbar.text;
+                const draft = [
+                  `[${scriptureName}, Ch.${chapter}]`,
+                  `Full passage: "${fullVerseText}"`,
+                  `Selected: "${selectionToolbar.text.slice(0, 200)}"`,
+                  `\nMy question: `,
+                ].join("\n");
+                return `/ask?draft=${encodeURIComponent(draft)}`;
+              })()}
               className="ml-auto text-xs text-accent hover:underline whitespace-nowrap"
               onClick={() => { setSelectionToolbar(null); window.getSelection()?.removeAllRanges(); }}
             >

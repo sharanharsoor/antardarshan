@@ -164,3 +164,65 @@ def test_ensure_soft_tradition_target_presence():
 
     out = rag_query._ensure_soft_target_presence(final, candidates, intent, top_k=2)
     assert out[0]["tradition"] == "hindu_yoga"
+
+
+# ── Reading-mode retrieval helpers ────────────────────────────────────
+
+def _hits_mixed(target: str, n_target: int, n_other: int) -> list[dict]:
+    """Build a hit list with n_target from target scripture and n_other from 'OtherBook'."""
+    return (
+        [_hit(target, "buddhist") for _ in range(n_target)] +
+        [_hit("OtherBook", "hindu_vedanta") for _ in range(n_other)]
+    )
+
+
+def test_balance_for_reading_mode_caps_non_target():
+    from backend.rag_query import _balance_for_reading_mode
+    hits = _hits_mixed("Samyutta Nikaya", n_target=6, n_other=6)
+    balanced = _balance_for_reading_mode(hits, target="Samyutta Nikaya",
+                                          max_per_source=2, target_max=4, total_cap=20)
+    from_target = [h for h in balanced if h["scripture"] == "Samyutta Nikaya"]
+    from_other  = [h for h in balanced if h["scripture"] == "OtherBook"]
+    assert len(from_target) == 4   # target allowed up to target_max=4
+    assert len(from_other)  == 2   # non-target capped at max_per_source=2
+
+
+def test_balance_for_reading_mode_handles_sparse_target():
+    """If the target book has fewer results than target_max, we take what's available."""
+    from backend.rag_query import _balance_for_reading_mode
+    hits = _hits_mixed("Samyutta Nikaya", n_target=2, n_other=10)
+    balanced = _balance_for_reading_mode(hits, target="Samyutta Nikaya",
+                                          max_per_source=2, target_max=4, total_cap=20)
+    from_target = [h for h in balanced if h["scripture"] == "Samyutta Nikaya"]
+    assert len(from_target) == 2   # only 2 available, that's all we get
+
+
+def test_ensure_reading_mode_presence_swaps_in_when_needed():
+    """If reranker demotes target results, ensure_reading_mode_presence swaps them in."""
+    from backend.rag_query import _ensure_reading_mode_presence
+    # Final hits: only 1 from target (reranker demoted others)
+    final = [_hit("Samyutta Nikaya", "buddhist")] + [_hit("OtherBook", "hindu_vedanta") for _ in range(4)]
+    # Candidates pool has more target hits available
+    candidates = [_hit("Samyutta Nikaya", "buddhist") for _ in range(5)] + \
+                 [_hit("OtherBook", "hindu_vedanta") for _ in range(5)]
+    result = _ensure_reading_mode_presence(final, candidates, "Samyutta Nikaya", min_hits=3, top_k=5)
+    from_target = [h for h in result if h["scripture"] == "Samyutta Nikaya"]
+    assert len(from_target) >= 3
+    assert len(result) == 5
+
+
+def test_ensure_reading_mode_presence_no_change_when_already_enough():
+    """Does not alter results when target already meets min_hits."""
+    from backend.rag_query import _ensure_reading_mode_presence
+    final = [_hit("Samyutta Nikaya", "buddhist") for _ in range(3)] + \
+            [_hit("OtherBook", "hindu_vedanta") for _ in range(2)]
+    result = _ensure_reading_mode_presence(final, final, "Samyutta Nikaya", min_hits=3, top_k=5)
+    assert result == final[:5]
+
+
+def test_ratio_based_min_hits():
+    """Ratio policy: top_k=5→3, top_k=3→2, top_k=10→6."""
+    assert max(1, round(5  * 0.6)) == 3
+    assert max(1, round(3  * 0.6)) == 2
+    assert max(1, round(10 * 0.6)) == 6
+    assert max(1, round(1  * 0.6)) == 1  # never goes below 1

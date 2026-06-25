@@ -30,6 +30,10 @@ SCRIPTURE_PATTERNS = [
     (r"\b(?:svetasvatara[\s-]?upanishad|svetasvatara)\b", "Svetasvatara Upanishad"),
     (r"\b(?:chandogya[\s-]?upanishad|chandogya)\b", "Chandogya Upanishad"),
     (r"\b(?:dhammapada|dhammpada)\b", "Dhammapada"),
+    (r"\b(?:samyutta[\s-]?nikaya|samyutta)\b", "Samyutta Nikaya"),
+    (r"\b(?:anguttara[\s-]?nikaya|anguttara)\b", "Anguttara Nikaya"),
+    (r"\b(?:digha[\s-]?nikaya|digha)\b", "Digha Nikaya"),
+    (r"\b(?:majjhima[\s-]?nikaya|majjhima)\b", "Majjhima Nikaya"),
     (r"\b(?:yoga[\s-]?sutra|patanjali)\b", "Yoga Sutras"),
     (r"\b(?:upanishad)s?\b", None),  # generic "upanishads" → tradition filter only
     (r"\b(?:vivekananda|swami vivekananda)\b", None),  # → filter tradition + partial scripture name
@@ -69,6 +73,7 @@ class QueryIntent:
     scripture_filter: str | None = None  # exact scripture name to filter for
     tradition_filter: str | None = None  # tradition to filter for
     filter_strength: str = "soft"  # "hard" = must match, "soft" = boost but don't exclude
+    reading_mode: bool = False       # True when query comes from reading-page Ask AI bracket prefix
     detected_terms: list[str] = field(default_factory=list)  # Sanskrit/key terms detected
 
 
@@ -129,14 +134,36 @@ def analyze_query(query: str) -> QueryIntent:
     else:
         intent.mode = "citation"
 
-    # --- Detect scripture ---
-    for pattern, scripture_name in SCRIPTURE_PATTERNS:
-        if re.search(pattern, q_lower, re.IGNORECASE):
-            if scripture_name:
-                intent.scripture_filter = scripture_name
-                # If user explicitly names a scripture, use hard filter
-                intent.filter_strength = "hard"
-            break
+    # --- Detect reading-mode "Ask AI" bracket prefix: [Scripture, Ch.N] ---
+    # The reading page injects this when the user selects text and clicks Ask AI.
+    # Extract the scripture name as a soft filter so RAG prioritises results from that book.
+    # Allow leading whitespace so edits to the draft don't break detection
+    bracket_match = re.match(r'^\s*\[([^\]]+)\]', query)
+    if bracket_match:
+        # Strip chapter info: "Samyutta Nikaya, Ch.3" → "Samyutta Nikaya"
+        reading_scripture = re.sub(r',\s*Ch\.\d+.*', '', bracket_match.group(1)).strip()
+        matched = False
+        for pattern, scripture_name in SCRIPTURE_PATTERNS:
+            if re.search(pattern, reading_scripture, re.IGNORECASE):
+                if scripture_name:
+                    intent.scripture_filter = scripture_name
+                    intent.filter_strength = "soft"
+                    intent.reading_mode = True
+                matched = True
+                break
+        if not matched and reading_scripture:
+            intent.scripture_filter = reading_scripture
+            intent.filter_strength = "soft"
+            intent.reading_mode = True
+
+    # --- Detect scripture from query body (may upgrade to hard filter) ---
+    if not intent.scripture_filter:
+        for pattern, scripture_name in SCRIPTURE_PATTERNS:
+            if re.search(pattern, q_lower, re.IGNORECASE):
+                if scripture_name:
+                    intent.scripture_filter = scripture_name
+                    intent.filter_strength = "hard"
+                break
 
     # --- Detect tradition (if no specific scripture) ---
     if not intent.scripture_filter and traditions_mentioned:

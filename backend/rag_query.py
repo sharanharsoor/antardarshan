@@ -369,6 +369,61 @@ def _ensure_soft_target_presence(
     return final_hits[:top_k]
 
 
+def _balance_for_reading_mode(
+    hits: list[dict],
+    target: str,
+    max_per_source: int,
+    target_max: int,
+    total_cap: int,
+) -> list[dict]:
+    """
+    Like _balance_by_source but allows the target scripture up to target_max slots
+    while capping all other sources at max_per_source.
+    Used for reading-mode queries so the source book dominates the reranker pool.
+    """
+    counts: dict[str, int] = {}
+    balanced: list[dict] = []
+    for h in hits:
+        src = h.get("scripture", "")
+        cap = target_max if src == target else max_per_source
+        if counts.get(src, 0) < cap:
+            balanced.append(h)
+            counts[src] = counts.get(src, 0) + 1
+        if len(balanced) >= total_cap:
+            break
+    return balanced
+
+
+def _ensure_reading_mode_presence(
+    final_hits: list[dict],
+    candidate_hits: list[dict],
+    scripture: str,
+    min_hits: int,
+    top_k: int,
+) -> list[dict]:
+    """
+    Ensure at least min_hits results from the source scripture in the final top_k.
+    When the reranker demotes source results, this swaps them back in from the
+    candidate pool — keeping the total at top_k.
+    """
+    from_target = [h for h in final_hits if h.get("scripture") == scripture]
+    if len(from_target) >= min_hits:
+        return final_hits[:top_k]
+
+    # Need more from target — pull from candidates not already in final_hits
+    final_ids = {id(h) for h in final_hits}
+    extra = [h for h in candidate_hits
+             if h.get("scripture") == scripture and id(h) not in final_ids][:min_hits - len(from_target)]
+
+    if not extra:
+        return final_hits[:top_k]
+
+    # Place target results first, then fill with non-target to maintain top_k count
+    non_target = [h for h in final_hits if h.get("scripture") != scripture]
+    result = from_target + extra + non_target
+    return result[:top_k]
+
+
 def search(query: str, top_k: int = 5) -> list[dict]:
     """Full hybrid search pipeline: analyze → retrieve → balance → rerank.
 
@@ -418,10 +473,23 @@ def search(query: str, top_k: int = 5) -> list[dict]:
     # Step 4: Source balancing — prevent any one corpus dominating the reranker input
     # If a hard scripture filter is active, skip balancing (user asked for a specific text)
     if not (intent.scripture_filter and intent.filter_strength == "hard"):
-        hits = _balance_by_source(hits, max_per_source=MAX_PER_SOURCE, total_cap=20)
+        if intent.reading_mode and intent.scripture_filter:
+            # Book-first: allow up to 4 results from the source scripture,
+            # cap all others at 2 — ensures the book being read dominates the reranker input
+            hits = _balance_for_reading_mode(hits, target=intent.scripture_filter,
+                                             max_per_source=MAX_PER_SOURCE, target_max=4, total_cap=20)
+        else:
+            hits = _balance_by_source(hits, max_per_source=MAX_PER_SOURCE, total_cap=20)
 
     # Step 5: Rerank balanced pool → final top_k
     final_hits = _rerank(query, hits, top_k=top_k)
+
+    # Reading mode: guarantee at least 60% of top_k results from the source scripture
+    # (ratio-based so behaviour is consistent if top_k changes: 5→3, 3→2, 10→6)
+    if intent.reading_mode and intent.scripture_filter:
+        min_hits = max(1, round(top_k * 0.6))
+        return _ensure_reading_mode_presence(final_hits, hits, intent.scripture_filter,
+                                             min_hits=min_hits, top_k=top_k)
     return _ensure_soft_target_presence(final_hits, hits, intent, top_k)
 
 
