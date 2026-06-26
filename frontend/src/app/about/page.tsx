@@ -1,64 +1,94 @@
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 space-y-12">
+    <div className="mx-auto max-w-3xl px-4 py-12 space-y-10">
 
-      {/* About */}
       <section>
-        <h1 className="font-serif text-3xl font-bold mb-3">About AntarDarshan</h1>
+        <h1 className="font-serif text-3xl font-bold mb-4">About AntarDarshan</h1>
         <p className="text-muted leading-relaxed">
           AntarDarshan (<span className="font-devanagari">अन्तर्दर्शन</span>) means <em>inner vision</em>.
-          It is a free platform for exploring Indian philosophical traditions — Vedanta, Yoga, Buddhist,
-          Jain, Sikh, and Sant/Bhakti — through citation-grounded AI answers and a curated reading library.
-          Every AI response cites the original scripture passage so you can read the source yourself.
+          It started as a simple question: what if you could have a conversation with the wisdom of the Gita,
+          the Upanishads, the Dhammapada, and actually see where the answer comes from?
+        </p>
+        <p className="text-muted leading-relaxed mt-3">
+          Every answer cites the original passage so you can read it in context, question it, and go deeper.
+          No paraphrasing without proof. No wisdom without a source.
         </p>
       </section>
 
-      {/* Philosophy */}
       <section>
-        <h2 className="font-serif text-xl font-semibold mb-3">Our approach</h2>
-        <ul className="space-y-2 text-sm text-muted list-disc list-inside">
-          <li>AI answers are grounded in real scripture passages, not hallucinated summaries.</li>
-          <li>44 scriptures indexed — 21 with clean readable text in the library, 23 classical texts indexed for search.</li>
-          <li>Free forever. No ads. No paywalls.</li>
-          <li>Privacy-first: your Q&amp;A content is not stored for analytics by default.</li>
-        </ul>
+        <h2 className="font-serif text-xl font-semibold mb-3">What&apos;s inside</h2>
+        <p className="text-sm text-muted leading-relaxed">
+          We&apos;ve indexed 44 scriptures across Vedanta, Yoga, Buddhist, Jain, Sikh, and Sant/Bhakti traditions.
+          21 of them have clean readable text you can browse like a book. The remaining 23 are older scanned
+          texts. They power the AI search but aren&apos;t pretty enough to read directly yet.
+        </p>
+        <p className="text-sm text-muted leading-relaxed mt-2">
+          There&apos;s no advertising here. Your questions aren&apos;t stored or used for training by default.
+          If you want to help improve the AI&apos;s quality, you can opt in to content logging from the Ask page.
+        </p>
       </section>
 
-      {/* Wisdom Wall Guidelines — id="wisdom-guidelines" so the link anchors directly */}
       <section id="wisdom-guidelines">
-        <h2 className="font-serif text-xl font-semibold mb-1">Wisdom Wall guidelines</h2>
-        <p className="text-sm text-muted mb-4">
-          The Wisdom Wall is a community space for sharing spiritual experiences and philosophical reflections.
-          All posts are reviewed by AI before publishing.
+        <h2 className="font-serif text-xl font-semibold mb-2">Wisdom Wall</h2>
+        <p className="text-sm text-muted mb-4 leading-relaxed">
+          The Wisdom Wall is where people share their own reflections: personal experiences, insights, or
+          thoughts connected to Indian philosophy. Every post is reviewed by AI before it goes live.
         </p>
-        <div className="rounded-xl border border-border bg-surface p-5 space-y-3 text-sm">
-          <p className="font-medium text-foreground">Posts must:</p>
-          <ul className="space-y-2 text-muted list-disc list-inside">
-            <li>Relate to Indian philosophy, spiritual experiences, or personal growth through philosophical insight</li>
-            <li>Be a genuine personal reflection, insight, or philosophical thought</li>
-            <li>Not contain spam, advertisements, services, or promotional content</li>
-            <li>Not contain political opinions or divisive content</li>
-            <li>Not contain harmful, offensive, or inappropriate material</li>
-            <li>Not contain personal attacks or hate speech</li>
-            <li>If contact info is included, it must be for spiritual connection only — no business solicitation</li>
+        <div className="rounded-xl border border-border bg-surface p-5 text-sm space-y-3">
+          <p className="font-medium text-foreground">Posts should be about:</p>
+          <ul className="space-y-1.5 text-muted list-disc list-inside">
+            <li>Genuine personal reflections on Indian philosophy or spiritual life</li>
+            <li>Experiences, insights, or questions rooted in that tradition</li>
           </ul>
-
+          <p className="font-medium text-foreground mt-2">Posts will be rejected if they contain:</p>
+          <ul className="space-y-1.5 text-muted list-disc list-inside">
+            <li>Spam, promotion, or anything you&apos;re selling</li>
+            <li>Political opinions or divisive content</li>
+            <li>Personal attacks or harmful material</li>
+          </ul>
           <div className="border-t border-border/40 pt-3 text-xs text-muted/70 space-y-1">
-            <p><strong>Limits:</strong> 5 posts per day · 5 submission attempts per day (approved or rejected both count)</p>
-            <p><strong>Contact info:</strong> Hidden automatically after 15 days for privacy</p>
-            <p><strong>Auto-removal:</strong> Posts with &gt;40% downvotes and at least 5 votes are removed after 7 days</p>
-            <p><strong>Appeals:</strong> Contact us via the email in the footer if you believe a post was incorrectly rejected</p>
+            <p>5 posts per day · 5 submission attempts per day</p>
+            <p>Contact info (if shared) is hidden after 15 days automatically</p>
+            <p>Posts with many downvotes are removed after a week</p>
           </div>
         </div>
       </section>
 
-      {/* Privacy */}
       <section>
-        <h2 className="font-serif text-xl font-semibold mb-3">Privacy</h2>
-        <div className="text-sm text-muted space-y-2">
-          <p>Your Q&amp;A questions and answers are <strong>not stored for analytics</strong> by default. You can enable content logging to help improve the service using the 🔓 toggle in the Ask page.</p>
-          <p>When you delete a conversation, all messages are permanently deleted. Query activity metadata (mode, model, timestamp — no question text) is retained for quota tracking and can be cleared from your <a href="/profile#conversations" className="text-accent hover:underline">profile page</a>.</p>
-          <p>Wisdom Wall contact info you provide is hidden from public view after 15 days and deleted along with your post when you delete it.</p>
+        <h2 className="font-serif text-xl font-semibold mb-3">Open source</h2>
+        <p className="text-sm text-muted leading-relaxed">
+          The whole codebase (RAG pipeline, scripture parsers, reading interface) is on GitHub.
+          If you want to contribute a new scripture, fix something, or just see how it works, it&apos;s all there.
+        </p>
+        <a
+          href="https://github.com/sharanharsoor/antardarshan"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-2 text-sm text-accent hover:underline"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+          </svg>
+          github.com/sharanharsoor/antardarshan
+        </a>
+      </section>
+
+      <section>
+        <h2 className="font-serif text-xl font-semibold mb-3">Your data</h2>
+        <div className="text-sm text-muted space-y-2 leading-relaxed">
+          <p>
+            Your questions and answers aren&apos;t stored for analytics by default. You stay in control. There&apos;s
+            a toggle in the Ask page if you want to opt in.
+          </p>
+          <p>
+            When you delete a conversation, it&apos;s gone permanently. The only thing that stays is a tiny log
+            of activity (no question text, just timestamps and model info) used for daily query limits.
+            You can clear that too from your <a href="/profile#conversations" className="text-accent hover:underline">profile page</a>.
+          </p>
+          <p>
+            Contact info you share on the Wisdom Wall is hidden from public view after 15 days and deleted
+            when you delete your post.
+          </p>
         </div>
       </section>
 

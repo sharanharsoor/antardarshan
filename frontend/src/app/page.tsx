@@ -159,9 +159,7 @@ export default function LandingPage() {
                 {corpusStats.rag_only_texts} classical texts indexed for search only
               </p>
             </>
-          ) : (
-            <p className="text-xs text-muted/50">Free forever · No ads</p>
-          )}
+          ) : null}
         </div>
 
       </div>
