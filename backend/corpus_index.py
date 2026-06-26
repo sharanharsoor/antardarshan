@@ -28,6 +28,9 @@ def _make_slug(scripture: str) -> str:
 # These texts are STILL indexed in Qdrant for RAG search; they're just not
 # shown in the reading library.
 READABLE_SCRIPTURES: set[str] = {
+    # ── Epics ──────────────────────────────────────────────────────────
+    "Mahabharata",                 # Ganguli 1883-96, sacred-texts.com proofread — clean
+    "Ramayana",                    # Griffith 1895, PG #24869 — clean
     # ── Vedanta ────────────────────────────────────────────────────────
     "Bhagavad Gita",               # Arnold 1885, PG #2388 — clean
     "Ashtavakra Gita",             # Richards 1994, scraped — clean
@@ -35,6 +38,10 @@ READABLE_SCRIPTURES: set[str] = {
     "Isha Upanishad",              # Müller SBE split — clean
     "Kena Upanishad",              # Müller SBE split — clean
     "Mundaka Upanishad",           # Müller SBE split — clean
+    "Mandukya Upanishad",          # Müller SBE15 — clean (when indexed)
+    "Aitareya Upanishad",          # Müller SBE01 sacred-texts.com — clean
+    "Kaushitaki Upanishad",        # Müller SBE01 sacred-texts.com — clean
+    "Maitri Upanishad",            # Müller SBE15 sacred-texts.com — clean
     "Prashna Upanishad",           # Müller SBE split — clean
     "Taittiriya Upanishad",        # Müller SBE split — clean
     "Brihadaranyaka Upanishad",    # Müller SBE split — clean
@@ -49,6 +56,12 @@ READABLE_SCRIPTURES: set[str] = {
     "Majjhima Nikaya",             # Sujato CC0, SuttaCentral JSON — clean
     "Samyutta Nikaya",             # Sujato CC0, SuttaCentral JSON — clean
     "Anguttara Nikaya",            # Sujato CC0, SuttaCentral JSON — clean
+    # ── Khuddaka Nikaya sub-collections (Sujato CC0, clean JSON) ─────
+    "Sutta Nipata",
+    "Udana",
+    "Itivuttaka",
+    "Theragatha",
+    "Therigatha",
     # ── Modern teachers ───────────────────────────────────────────────
     "Vivekananda - Raja-Yoga",
     "Vivekananda - Karma-Yoga",

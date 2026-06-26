@@ -119,9 +119,90 @@ def _deduplicate_verses(chunks: list) -> list:
     return chunks
 
 
+_HARD_CAP_WORDS = 800  # BGE-M3 context = 8192 tokens ≈ 6300 words; 800 keeps quality high
+
+
+def _split_large_chunk(chunk, max_words: int = _HARD_CAP_WORDS) -> list:
+    """
+    Split a single oversized chunk into sentence-bounded pieces.
+    Preserves all metadata; sub-chunks get incrementing verse numbers.
+    Only called when chunk.text exceeds max_words.
+
+    Strategy:
+    1. Try to split on sentence boundaries (.!?)
+    2. If any resulting piece is STILL > max_words (e.g. OCR text with no punctuation),
+       fall back to hard word-count slicing on that piece.
+    """
+    import re as _re
+    import copy as _copy
+
+    words = chunk.text.split()
+    if len(words) <= max_words:
+        return [chunk]
+
+    def _word_slice(text: str, n: int) -> list[str]:
+        """Split text into pieces of at most n words by word boundary."""
+        ws = text.split()
+        return [" ".join(ws[i:i + n]) for i in range(0, len(ws), n)]
+
+    # Split on sentence boundaries
+    sentences = _re.split(r'(?<=[.!?])\s+', chunk.text)
+
+    # Accumulate sentences into max_words buckets; any sentence still > max_words
+    # gets word-sliced as a fallback so the cap is always enforced.
+    raw_parts: list[str] = []
+    current: list[str] = []
+    current_words = 0
+    for sent in sentences:
+        sent_words = len(sent.split())
+        if sent_words > max_words:
+            # Single sentence too long — flush current bucket then word-slice this sentence
+            if current:
+                raw_parts.append(" ".join(current))
+                current, current_words = [], 0
+            raw_parts.extend(_word_slice(sent, max_words))
+        elif current_words + sent_words > max_words and current:
+            raw_parts.append(" ".join(current))
+            current, current_words = [sent], sent_words
+        else:
+            current.append(sent)
+            current_words += sent_words
+    if current:
+        raw_parts.append(" ".join(current))
+
+    result = []
+    for i, part in enumerate(raw_parts):
+        part = part.strip()
+        if not part:
+            continue
+        sub = _copy.copy(chunk)
+        sub.text = part
+        sub.verse = chunk.verse * 100 + i
+        result.append(sub)
+    return result
+
+
+def _apply_hard_cap(chunks: list) -> list:
+    """Apply _HARD_CAP_WORDS to every chunk. Reports any splits."""
+    result = []
+    splits = 0
+    for chunk in chunks:
+        words = len(chunk.text.split())
+        if words > _HARD_CAP_WORDS:
+            pieces = _split_large_chunk(chunk, _HARD_CAP_WORDS)
+            splits += len(pieces) - 1
+            result.extend(pieces)
+        else:
+            result.append(chunk)
+    if splits:
+        print(f"    ↳ Hard cap: split {splits} oversized chunks (>{_HARD_CAP_WORDS} words)")
+    return result
+
+
 def _save(chunks: list, filename: str) -> int:
     if not chunks:
         return 0
+    chunks = _apply_hard_cap(chunks)
     chunks = _deduplicate_verses(chunks)
     output = CORPUS_PROCESSED / filename
     output.write_text(
@@ -199,6 +280,10 @@ def process_all() -> int:
         ("brihadaranyaka_upanishad_muller.txt", "Brihadaranyaka Upanishad", "brihadaranyaka_upanishad_muller.json"),
         ("svetasvatara_upanishad_muller.txt",   "Svetasvatara Upanishad",   "svetasvatara_upanishad_muller.json"),
         ("chandogya_upanishad_muller.txt",      "Chandogya Upanishad",      "chandogya_upanishad_muller.json"),
+        ("mandukya_upanishad_muller.txt",       "Mandukya Upanishad",       "mandukya_upanishad.json"),
+        ("aitareya_upanishad_muller.txt",       "Aitareya Upanishad",       "aitareya_upanishad_muller.json"),
+        ("kaushitaki_upanishad_muller.txt",     "Kaushitaki Upanishad",     "kaushitaki_upanishad_muller.json"),
+        ("maitri_upanishad_muller.txt",         "Maitri Upanishad",         "maitri_upanishad_muller.json"),
     ]
     for fname, name, outfile in upanishad_files:
         path = CORPUS_RAW / fname
@@ -246,6 +331,8 @@ def process_all() -> int:
     print("\n── Phase 2: Pali Canon (SuttaCentral CC0) ──")
 
     if sc_data.exists():
+        from ingestion.parsers.pali_canon_sujato import parse_nikaya, NIKAYA_META
+        # Main four Nikayas
         nikayas_to_parse = {
             "dn": "digha_nikaya_sujato.json",
             "mn": "majjhima_nikaya_sujato.json",
@@ -258,6 +345,26 @@ def process_all() -> int:
             n = _save(chunks, outfile)
             if n:
                 total += n
+
+        # Khuddaka Nikaya sub-collections (already in sc-data, all CC0)
+        kn_base = sc_data / "translation" / "en" / "sujato" / "sutta" / "kn"
+        kn_targets = {
+            "snp":  ("Sutta Nipata",  "sutta_nipata.json"),
+            "ud":   ("Udana",         "udana.json"),
+            "iti":  ("Itivuttaka",    "itivuttaka.json"),
+            "thag": ("Theragatha",    "theragatha.json"),
+            "thig": ("Therigatha",    "therigatha.json"),
+        }
+        for code, (name, outfile) in kn_targets.items():
+            nikaya_dir = kn_base / code
+            if nikaya_dir.exists():
+                chunks = parse_nikaya(nikaya_dir, code)
+                n = _save(chunks, outfile)
+                if n:
+                    print(f"  ✓ {name} (Sujato CC0): {n} chunks")
+                    total += n
+            else:
+                print(f"  ✗ {name}: sc-data/kn/{code}/ not found")
     else:
         print("  ✗ Pali Canon: sc-data directory not found")
 

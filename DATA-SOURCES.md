@@ -265,8 +265,8 @@ Also: site Terms of Service ≠ copyright. A site may host PD content under rest
 
 | Edition | Translator | Year | Tier | Source |
 |---|---|---|---|---|
-| Hymns of the Samaveda | Ralph T.H. Griffith | 1895 | **A** | [Project Gutenberg #16367](https://www.gutenberg.org/ebooks/16367) | PD |
-| The Texts of the White Yajurveda | Ralph T.H. Griffith | 1899 | **A** | [sacred-texts.com](https://sacred-texts.com/hin/wyv/index.htm) | PD |
+| Hymns of the Samaveda | Ralph T.H. Griffith | 1895 | **A** | ⚠️ **PG #16367 is WRONG** — that ID is "Watch—Work—Wait" by Sarah Myers. Correct Gutenberg ID unconfirmed. Try IA: `archive.org/details/hymnsofsāmaveda00grif` |
+| The Texts of the White Yajurveda | Ralph T.H. Griffith | 1899 | **A** | IA: `archive.org/download/textsofwhiteyaju00grif/textsofwhiteyaju00grif_djvu.txt` — IA blocks bots; download manually |
 
 ---
 
@@ -1299,3 +1299,54 @@ Do NOT ingest `pg12956.txt` into the main scripture retrieval index. Create a se
 **T10 — Update all sacred-texts.com source_url fields to IA alternatives**
 
 Every entry in this document that lists a `sacred-texts.com` URL should be updated to an IA or PG alternative as the primary source URL. The PD text is identical; the automated accessibility is not. Keep the sacred-texts.com URL as a human-readable reference in `source_url_canonical` (it's a good browsable website) but put the IA download URL in `source_url_fetched`.
+
+---
+
+## SECTION 18: INGESTION SESSION — 2026-06-27 (Claude Sonnet 4.6)
+
+> **Session scope:** Indexed 5 Khuddaka Nikaya sub-collections from sc-data (already on disk). Corrected wrong Gutenberg IDs in DATA-SOURCES.md. Confirmed Vivekananda Karma-Yoga and Mandukya Upanishad indexed. Corpus grew from 19,278 → 20,003 points (net, after removing one duplicate).
+
+### NEWLY INDEXED ✅
+
+| Text | Translator | Chunks | Method | Notes |
+|---|---|---|---|---|
+| **Sutta Nipata** | Bhikkhu Sujato (CC0) | 97 | `ingestion/index_kn_subcollections.py` | One of the oldest Buddhist texts; 73 suttas from sc-data/kn/snp/ |
+| **Udana** | Bhikkhu Sujato (CC0) | 94 | `ingestion/index_kn_subcollections.py` | 80 inspired utterances of the Buddha; sc-data/kn/ud/ |
+| **Itivuttaka** | Bhikkhu Sujato (CC0) | 113 | `ingestion/index_kn_subcollections.py` | 112 short discourses; sc-data/kn/iti/ |
+| **Theragatha** | Bhikkhu Sujato (CC0) | 278 | `ingestion/index_kn_subcollections.py` | 264 poems of elder monks; sc-data/kn/thag/ |
+| **Therigatha** | Bhikkhu Sujato (CC0) | 79 | `ingestion/index_kn_subcollections.py` | 73 poems of elder nuns — unique female voice; sc-data/kn/thig/ |
+| **Vivekananda - Karma-Yoga** | Swami Vivekananda | 31 | `python -m ingestion.admin add` | 5 chapters from corpus/raw/vivekananda/karma_yoga_ch*.txt |
+| **Mandukya Upanishad** | Max Müller (written from PD text) | ~10 | `python -m ingestion.admin add` | 12 mantras; corpus/raw/mandukya_upanishad_muller.txt |
+
+**Total corpus: 20,003 points** (up from 19,278 before this session).
+
+### WRONG GUTENBERG IDs FOUND (audit correction)
+
+The 2026-06-19 Sonnet audit marked these IDs as "✅ LIVE" but only checked HTTP 200, not content. All three IDs point to entirely different books:
+
+| DATA-SOURCES.md claimed | Actual PG content at that ID | Correct status |
+|---|---|---|
+| PG #16367 = Sama Veda (Griffith) | "Watch—Work—Wait" by Sarah Myers | ❌ WRONG ID |
+| PG #9394 = Vishnu Purana (Wilson) | "The Shih King" (Chinese poetry) by James Legge | ❌ WRONG ID |
+| PG #7733 = Gita Govinda (Arnold) | "Paul Clifford — Volume 06" by Lytton | ❌ WRONG ID — also Gita Govinda NOT on Gutenberg at all |
+
+**Action:** Correct Gutenberg IDs need to be found manually. For Sama Veda and Vishnu Purana, search Internet Archive directly. For Gita Govinda by Edwin Arnold, it is not on Project Gutenberg — find via sacred-texts.com (manually, since it blocks bots) or Internet Archive.
+
+### STILL NEEDED — NEXT SESSION
+
+| Text | Where to get | Status |
+|---|---|---|
+| Sama Veda (Griffith 1895) | Search IA: `archive.org/search?query=sama+veda+griffith` | ⏳ Download manually |
+| Vishnu Purana (Wilson 1840) | Search IA: `archive.org/search?query=vishnu+purana+wilson` | ⏳ Download manually |
+| Gita Govinda (Edwin Arnold 1875) | Not on Gutenberg. Try IA: `archive.org/search?query=gita+govinda+arnold` | ⏳ Download manually |
+| White Yajur Veda (Griffith 1899) | IA blocks bots. Download manually from `archive.org/details/textsofwhiteyaju00grif` | ⏳ Download manually |
+| Yoga Vasistha Laghu (Aiyer 1896) | PG #10270 is 404. Try IA search | ⏳ ID to be found |
+| Buddhacharita (Cowell 1894) | IA blocks bots. `archive.org/details/buddhacharitaorli00asvauoft` | ⏳ Download manually |
+
+Once any of these files is saved to `corpus/raw/`, run:
+```bash
+source .venv/bin/activate
+python -m ingestion.admin add corpus/raw/<filename>.txt \
+  --scripture "<Name>" --tradition hindu_vedanta \
+  --translator "<Translator>" --year <year>
+```
