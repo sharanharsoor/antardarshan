@@ -106,6 +106,22 @@ class QueryResponse(BaseModel):
     conversation_id: str | None = None
     conversation_saved: bool = False
     message_id: str | None = None         # Supabase ID of the assistant message (for feedback)
+    follow_ups: list[str] = []
+
+
+def _parse_follow_ups(text: str) -> tuple[str, list[str]]:
+    """
+    Extract and strip the FOLLOWUPS section appended by the LLM.
+    Returns (clean_answer, questions_list).
+    Tolerant of case/whitespace variants (e.g. 'Followups :' or 'FOLLOWUPS:').
+    """
+    import re as _re
+    m = _re.search(r'\n\s*FOLLOWUPS?\s*:\s*(.+)', text, _re.IGNORECASE | _re.DOTALL)
+    if not m:
+        return text, []
+    clean = text[:m.start()].rstrip()
+    questions = [q.strip() for q in m.group(1).split('|') if q.strip()][:3]
+    return clean, questions
 
 
 class FeedbackRequest(BaseModel):
@@ -328,12 +344,16 @@ async def query_endpoint(request: Request, req: QueryRequest):
 
     use_deep = (mode in ("comparison", "well_being"))
 
-    answer, trace_id, model_used, tokens_used = generate_response(
+    raw_answer, trace_id, model_used, tokens_used = generate_response(
         req.query, hits, mode=mode, use_deep_model=use_deep,
         conversation_history=history if history else None,
         log_content=req.log_content,
     )
     latency_ms = int((time.time() - start) * 1000)
+
+    # Parse immediately — use clean_answer everywhere so neither session memory
+    # nor persisted transcripts contain the raw FOLLOWUPS: control text.
+    answer, follow_ups = _parse_follow_ups(raw_answer)
 
     # Store turns in session memory — llm-smartmem handles token tracking
     await sessions.add_message(session_id, "user", req.query)
@@ -399,6 +419,7 @@ async def query_endpoint(request: Request, req: QueryRequest):
         conversation_id=conversation_id,
         conversation_saved=conversation_saved,
         message_id=assistant_message_id if conversation_saved else None,
+        follow_ups=follow_ups,
     )
 
 
@@ -782,7 +803,10 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
             if e.value:
                 trace_id, model_used, tokens_used = e.value
 
-        answer = "".join(answer_parts)
+        raw_answer = "".join(answer_parts)
+
+        # Shared tolerant parser — handles case/whitespace variants
+        answer, follow_ups = _parse_follow_ups(raw_answer)
 
         # Post-stream: persist, log
         await sessions.add_message(session_id, "user", req.query)
@@ -806,8 +830,8 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
 
         _log_query(mode, citations, int((time.time() - stream_start_time) * 1000), hits[0]["tradition"] if hits else None)
 
-        # Final metadata event
-        yield f"data: {_json.dumps({'type': 'done', 'session_id': session_id, 'mode': mode, 'citations': citations, 'conversation_id': conv_id, 'conversation_saved': conv_saved, 'message_id': msg_id, 'trace_id': trace_id, 'model': model_used, 'tokens_used': tokens_used})}\n\n"
+        # Final metadata event — include follow_ups so frontend can show suggestion chips
+        yield f"data: {_json.dumps({'type': 'done', 'session_id': session_id, 'mode': mode, 'citations': citations, 'conversation_id': conv_id, 'conversation_saved': conv_saved, 'message_id': msg_id, 'trace_id': trace_id, 'model': model_used, 'tokens_used': tokens_used, 'follow_ups': follow_ups})}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream",

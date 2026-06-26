@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Send, RotateCcw, ThumbsUp, ThumbsDown, ExternalLink,
   Share2, PanelLeftOpen, PanelLeftClose, Check, Copy,
-  ArrowUp, ArrowDown, MessageSquareQuote,
+  ArrowUp, ArrowDown, MessageSquareQuote, CornerDownRight,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { queryAIStream, getQuotaStatus, deleteSession, scriptureToSlug, type QueryResponse, type QuotaStatus } from "@/lib/api";
@@ -28,6 +28,7 @@ interface Message {
   model?: string | null;
   tokensUsed?: number | null;
   feedback?: 1 | -1 | null;
+  followUps?: string[];
 }
 
 interface AskPageCoreProps {
@@ -322,9 +323,11 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
         { conversation_id: convId ?? undefined, access_token: accessToken ?? undefined, log_content: logContent },
         (token) => {
           streamedContent += token;
+          // Tolerant strip — matches FOLLOWUPS/Followups/FOLLOWUPS : etc (same as backend regex)
+          const liveContent = streamedContent.replace(/\n\s*FOLLOWUPS?\s*:[\s\S]*$/i, "").trimEnd() || streamedContent;
           setMessages((prev) =>
             prev.map((m) =>
-              m.traceId === streamingId ? { ...m, content: streamedContent } : m
+              m.traceId === streamingId ? { ...m, content: liveContent } : m
             )
           );
         },
@@ -344,13 +347,16 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
         setConversationId(response.conversation_id);
       }
 
+      // Tolerant strip — same regex as backend _parse_follow_ups
+      const displayContent = streamedContent.replace(/\n\s*FOLLOWUPS?\s*:[\s\S]*$/i, "").trimEnd() || streamedContent;
+
       // Replace the placeholder with the finalized message + metadata
       setMessages((prev) =>
         prev.map((m) =>
           m.traceId === streamingId
             ? {
                 role: "assistant",
-                content: streamedContent,
+                content: displayContent,
                 citations: response.citations,
                 mode: response.mode,
                 traceId: response.trace_id ?? null,
@@ -358,6 +364,7 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
                 model: response.model ?? null,
                 tokensUsed: response.tokens_used ?? null,
                 feedback: null,
+                followUps: (response.follow_ups as string[] | undefined)?.filter(Boolean) ?? [],
               }
             : m
         )
@@ -708,6 +715,30 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
                         </span>
                       )}
                     </div>
+
+                    {/* Follow-up suggestions — grounded in cited sources, 0-2 chips */}
+                    {msg.followUps && msg.followUps.length > 0 && !isReadOnly && (
+                      <div className="mt-4 pt-3 border-t border-border/30">
+                        <p className="text-[10px] font-medium text-muted/50 uppercase tracking-widest mb-2.5">
+                          Explore further
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {msg.followUps.map((q, qi) => (
+                            <button
+                              key={qi}
+                              onClick={() => {
+                                setInput(q);
+                                setTimeout(() => inputRef.current?.focus(), 50);
+                              }}
+                              className="flex items-center gap-2 text-sm rounded-xl border border-accent/20 bg-accent/5 hover:bg-accent/10 hover:border-accent/40 px-4 py-2.5 text-foreground/75 hover:text-foreground transition-colors text-left group"
+                            >
+                              <CornerDownRight className="h-3.5 w-3.5 text-accent/50 shrink-0 group-hover:text-accent transition-colors" />
+                              <span>{q}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

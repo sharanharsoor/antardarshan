@@ -68,9 +68,10 @@ export function Header() {
             <Link
               key={href}
               href={href}
-              className="text-sm text-muted hover:text-foreground border border-border hover:border-accent/40 rounded-full px-3 py-1.5 transition-colors whitespace-nowrap"
+              className="text-sm text-foreground/60 hover:text-foreground transition-colors whitespace-nowrap relative group"
             >
               {label}
+              <span className="absolute -bottom-0.5 left-0 right-0 h-px bg-accent scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
             </Link>
           ))}
 

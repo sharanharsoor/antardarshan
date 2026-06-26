@@ -21,8 +21,9 @@ interface DailyWisdom {
 
 const EXAMPLE_QUERIES = [
   "What does the Gita say about duty?",
-  "I'm going through a difficult time",
+  "What does the Gita teach about overcoming fear and grief?",
   "How does Vedanta differ from Buddhism on the self?",
+  "How does Dharma change across different ages?",
 ];
 
 
@@ -77,15 +78,15 @@ export default function LandingPage() {
           </button>
         </form>
 
-        {/* Example queries */}
-        <div className="flex flex-wrap gap-2 justify-center mb-6">
+        {/* Example queries — 2×2 grid, text-left chips; 1-col on mobile */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
           {EXAMPLE_QUERIES.map((q) => (
             <button
               key={q}
               onClick={() => router.push(`/ask?prefill=${encodeURIComponent(q)}`)}
-              className="rounded-full border border-border px-3 py-1.5 text-sm text-muted hover:bg-surface hover:text-foreground hover:border-accent/30 active:scale-[0.97] transition-all"
+              className="rounded-xl border border-border px-4 py-3 text-sm text-muted hover:bg-surface hover:text-foreground hover:border-accent/30 active:scale-[0.98] transition-all text-left leading-snug"
             >
-              &ldquo;{q}&rdquo;
+              {q}
             </button>
           ))}
         </div>

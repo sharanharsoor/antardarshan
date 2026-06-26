@@ -40,7 +40,7 @@ _groq_client = None
 def _get_groq_client():
     global _groq_client
     if _groq_client is None and GROQ_API_KEY:
-        _groq_client = Groq(api_key=GROQ_API_KEY)
+        _groq_client = Groq(api_key=GROQ_API_KEY, timeout=60.0)
     return _groq_client
 
 _CITATION_RULE = """
@@ -52,7 +52,11 @@ FORMAT: You MUST respond in markdown. Start immediately with a ## heading (no pr
 Use 3 sections MAX. Each section: paragraph → > blockquote → paragraph explaining the quote.
 End with a short **Synthesis** paragraph (no heading needed) that ties together the key thread across all cited passages — what do they collectively reveal?
 Never use [Source N] inline — cite scripture name directly in the blockquote attribution.
-Open with the sharpest, most direct answer to the question — not "X is a complex concept". Capture the heart of it in 1-2 sentences."""
+Open with the sharpest, most direct answer to the question — not "X is a complex concept". Capture the heart of it in 1-2 sentences.
+
+After your Synthesis, on a new line write exactly:
+FOLLOWUPS: [question 1] | [question 2]
+Each question must be directly and completely answerable using the [Source N] passages provided above — do not suggest questions about topics absent from the sources. Write at most 2 questions. If you cannot find 2 fully grounded questions, write 1 or none."""
 
 SYSTEM_PROMPTS = {
     "citation": f"""You are AntarDarshan, an AI assistant specializing in Indian philosophy.

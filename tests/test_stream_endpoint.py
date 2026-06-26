@@ -157,3 +157,50 @@ class TestStreamEvents:
             assert len(citations) == 1
             # readable flag present (True since corpus not initialized → fallback)
             assert "readable" in citations[0]
+
+
+# ── FOLLOWUPS parsing helper ───────────────────────────────────────────
+
+class TestParseFollowUps:
+
+    def test_strips_followups_and_returns_questions(self):
+        from backend.app import _parse_follow_ups
+        text = "## Dharma\nSome synthesis paragraph.\nFOLLOWUPS: What is karma? | How does dharma evolve?"
+        clean, qs = _parse_follow_ups(text)
+        assert "FOLLOWUPS" not in clean
+        assert len(qs) == 2
+        assert qs[0] == "What is karma?"
+        assert qs[1] == "How does dharma evolve?"
+
+    def test_tolerant_of_case_variants(self):
+        from backend.app import _parse_follow_ups
+        text = "Answer text.\nFollowups: Q1 | Q2"
+        clean, qs = _parse_follow_ups(text)
+        assert "Followups" not in clean
+        assert len(qs) == 2
+
+    def test_tolerant_of_whitespace_before_colon(self):
+        from backend.app import _parse_follow_ups
+        text = "Answer.\nFOLLOWUPS : Q1 | Q2"
+        clean, qs = _parse_follow_ups(text)
+        assert len(qs) == 2
+
+    def test_returns_empty_list_when_no_followups(self):
+        from backend.app import _parse_follow_ups
+        text = "Just a normal answer with no follow-ups appended."
+        clean, qs = _parse_follow_ups(text)
+        assert clean == text
+        assert qs == []
+
+    def test_caps_at_three_questions(self):
+        from backend.app import _parse_follow_ups
+        text = "Answer.\nFOLLOWUPS: Q1 | Q2 | Q3 | Q4 | Q5"
+        _, qs = _parse_follow_ups(text)
+        assert len(qs) == 3
+
+    def test_clean_answer_has_no_trailing_whitespace(self):
+        from backend.app import _parse_follow_ups
+        text = "Synthesis paragraph.  \n\nFOLLOWUPS: Q1"
+        clean, _ = _parse_follow_ups(text)
+        assert not clean.endswith(" ")
+        assert not clean.endswith("\n")

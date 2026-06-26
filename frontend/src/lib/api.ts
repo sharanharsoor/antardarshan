@@ -80,6 +80,7 @@ export interface QueryResponse {
   conversation_id?: string | null;
   conversation_saved?: boolean;
   message_id?: string | null;
+  follow_ups?: string[];
 }
 
 export interface QuotaStatus {
@@ -157,6 +158,7 @@ export async function queryAIStream(
             conversation_id: event.conversation_id,
             conversation_saved: event.conversation_saved,
             message_id: event.message_id,
+            follow_ups: event.follow_ups ?? [],
           };
         }
       } catch { /* malformed JSON line, skip */ }
