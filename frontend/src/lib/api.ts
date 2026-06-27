@@ -123,46 +123,70 @@ export async function queryAIStream(
     throw Object.assign(new Error(`Stream failed: ${res.status}`), { status: res.status, detail });
   }
 
+  // Client-side timeout — if no completion within 90s, abort so the
+  // UI never shows three dots forever (e.g. Groq hanging on rate limit)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90_000);
+
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   let metadata: QueryResponse | null = null;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    outer: while (true) {
+      // Respect abort signal
+      if (controller.signal.aborted) {
+        throw Object.assign(new Error("Stream timed out"), { status: 408 });
+      }
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const payload = line.slice(6).trim();
-      if (payload === "[DONE]") break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
 
-      try {
-        const event = JSON.parse(payload);
-        if (event.type === "token") {
-          onToken(event.content);
-        } else if (event.type === "done") {
-          metadata = {
-            answer: "",  // answer is accumulated via onToken
-            mode: event.mode,
-            citations: event.citations,
-            session_id: event.session_id,
-            latency_ms: 0,  // not tracked in streaming (tokens arrive continuously)
-            trace_id: event.trace_id,
-            model: event.model,
-            tokens_used: event.tokens_used,
-            conversation_id: event.conversation_id,
-            conversation_saved: event.conversation_saved,
-            message_id: event.message_id,
-            follow_ups: event.follow_ups ?? [],
-          };
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const payload = line.slice(6).trim();
+        if (payload === "[DONE]") break outer;
+
+        try {
+          const event = JSON.parse(payload);
+          if (event.type === "token") {
+            onToken(event.content);
+          } else if (event.type === "done") {
+            metadata = {
+              answer: "",
+              mode: event.mode,
+              citations: event.citations,
+              session_id: event.session_id,
+              latency_ms: 0,
+              trace_id: event.trace_id,
+              model: event.model,
+              tokens_used: event.tokens_used,
+              conversation_id: event.conversation_id,
+              conversation_saved: event.conversation_saved,
+              message_id: event.message_id,
+              follow_ups: event.follow_ups ?? [],
+            };
+          } else if (event.type === "error") {
+            // Backend sent an explicit error (Groq failure, quota, etc.)
+            throw Object.assign(
+              new Error(event.content ?? "Stream error"),
+              { status: 500 }
+            );
+          }
+        } catch (parseErr) {
+          // Re-throw real errors; ignore malformed JSON lines
+          if ((parseErr as { status?: number })?.status) throw parseErr;
         }
-      } catch { /* malformed JSON line, skip */ }
+      }
     }
+  } finally {
+    clearTimeout(timeoutId);
+    reader.cancel().catch(() => {});
   }
 
   if (!metadata) throw new Error("Stream ended without metadata");

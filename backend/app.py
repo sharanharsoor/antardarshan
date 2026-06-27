@@ -929,7 +929,17 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
 
             try:
                 while True:
-                    event_type, payload = await token_queue.get()
+                    try:
+                        # 45s per-token timeout — if Groq hangs (slow rate-limit,
+                        # not a fast 429) this unblocks the client instead of
+                        # showing three dots forever.
+                        event_type, payload = await asyncio.wait_for(
+                            token_queue.get(), timeout=45.0
+                        )
+                    except asyncio.TimeoutError:
+                        stop_event.set()
+                        yield f"data: {_json.dumps({'type': 'error', 'content': 'Response timed out. Please try again.'})}\n\n"
+                        break
                     if event_type == "done":
                         break
                     if event_type == "error":

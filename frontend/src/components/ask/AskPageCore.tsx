@@ -380,6 +380,11 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
         errorContent = detail?.error === "global_limit_reached"
           ? "The service has reached its daily query limit. Please come back tomorrow."
           : "You've used today's 50 personal queries. Come back tomorrow — the limit resets at midnight UTC.";
+      } else if (status === 408) {
+        errorContent = "The response took too long. The server may be busy — please try again in a moment.";
+      } else if (status === 500) {
+        // Backend stream error (Groq failure, rate limit, etc.)
+        errorContent = "Something went wrong while generating the response. Please try again.";
       }
       // Replace the stale placeholder (if it exists) rather than appending a second message
       setMessages((prev) => {
