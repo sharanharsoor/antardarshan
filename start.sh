@@ -25,32 +25,67 @@ if lsof -ti:3000 > /dev/null 2>&1; then
     sleep 1
 fi
 
-# Check Docker/Qdrant
-if ! curl -sf http://localhost:6333/health > /dev/null 2>&1; then
-    echo "  ⚠ Qdrant not running! Start it with:"
-    echo "    docker start qdrant-antardarshan"
-    echo "  Or:"
-    echo "    docker run -d --name qdrant-antardarshan -p 6333:6333 -v $PROJECT_DIR/qdrant_data:/qdrant/storage qdrant/qdrant"
-    echo ""
+# Start Qdrant (Docker) — start existing container or create a new one
+echo "  Starting Qdrant..."
+# Qdrant health check uses root path '/' — '/health' returns 404 on this version
+if docker ps -a --format '{{.Names}}' | grep -q "^qdrant-antardarshan$"; then
+    docker start qdrant-antardarshan > /dev/null 2>&1
+else
+    docker run -d --name qdrant-antardarshan \
+        -p 6333:6333 \
+        -v "$PROJECT_DIR/qdrant_data:/qdrant/storage" \
+        qdrant/qdrant > /dev/null 2>&1
 fi
 
-# Start backend
+# Wait for Qdrant to be ready
+for i in {1..15}; do
+    if curl -sf http://localhost:6333/ > /dev/null 2>&1; then
+        echo "  ✓ Qdrant ready"
+        break
+    fi
+    sleep 1
+    if [ "$i" -eq 15 ]; then
+        echo "  ✗ Qdrant failed to start. Is Docker running?"
+        exit 1
+    fi
+done
+
+# Start backend — Gunicorn with 2 UvicornWorkers (I/O-bound, handles concurrent requests)
+# Each worker is an independent async event loop. Scale up with -w on production VPS.
 echo ""
-echo "  Starting backend (port 8000)..."
+echo "  Starting backend (port 8000, 2 workers)..."
 source .venv/bin/activate
-EMBED_MODEL=BAAI/bge-m3 uvicorn backend.app:app --host 0.0.0.0 --port 8000 &
+# Mac: uvicorn directly (no forking — PyTorch/Metal crashes on fork via Loky).
+# Production Linux VPS: use Gunicorn instead:
+#   WORKERS=${GUNICORN_WORKERS:-4}
+#   EMBED_MODEL=BAAI/bge-m3 gunicorn backend.app:app \
+#       -w "$WORKERS" -k uvicorn.workers.UvicornWorker \
+#       --bind 0.0.0.0:8000 --timeout 120 --graceful-timeout 30 --log-level warning
+EMBED_MODEL=BAAI/bge-m3 uvicorn backend.app:app \
+    --host 0.0.0.0 --port 8000 \
+    --log-level warning &
 BACKEND_PID=$!
 echo "  Backend PID: $BACKEND_PID"
 
-# Wait for backend to be ready
+# Wait for backend to be ready — fail-fast if it never starts
 echo "  Waiting for backend..."
+BACKEND_READY=false
 for i in {1..30}; do
-    if curl -sf http://localhost:8000/api/health > /dev/null 2>&1; then
+    if curl -sf http://localhost:8000/healthz > /dev/null 2>&1; then
         echo "  ✓ Backend ready"
+        BACKEND_READY=true
         break
     fi
     sleep 1
 done
+
+if [ "$BACKEND_READY" = false ]; then
+    echo ""
+    echo "  ✗ Backend failed to start within 30s. Check logs above."
+    echo "  ✗ Is Qdrant running? docker start qdrant-antardarshan"
+    kill $BACKEND_PID 2>/dev/null
+    exit 1
+fi
 
 # Start frontend — clear .next cache first to prevent stale compiled modules
 echo ""

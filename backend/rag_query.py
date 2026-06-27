@@ -54,7 +54,10 @@ def _get_model():
 
         if EMBED_MODEL == "BAAI/bge-m3":
             from FlagEmbedding import BGEM3FlagModel
-            _model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=False)
+            # FP16 halves RAM (~1GB vs ~2GB) with negligible quality loss.
+            # Disable on CPU-only machines where FP16 is unsupported.
+            _use_fp16 = os.getenv("BGE_FP16", "true").lower() == "true"
+            _model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=_use_fp16)
         else:
             from sentence_transformers import SentenceTransformer
             _model = SentenceTransformer(EMBED_MODEL)

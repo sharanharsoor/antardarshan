@@ -40,3 +40,10 @@ llm-smartmem>=0.1.3
 
 # Scripture chunking library (github.com/sharanharsoor/chunking)
 chunking-strategy>=0.4.2
+
+# Server
+gunicorn>=22.0.0
+
+# Load testing — install manually for dev/CI only, not needed in production:
+#   pip install locust>=2.32.0
+# locust>=2.32.0

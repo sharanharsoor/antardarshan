@@ -15,8 +15,38 @@ import os
 import time
 import json
 import sqlite3
+import asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
+
+# ── Concurrency control ────────────────────────────────────────────────────────
+# Limits simultaneous LLM calls per worker. Prevents runaway Groq usage and
+# CPU thrashing from too many concurrent bge-m3 reranker calls.
+# With 2 Gunicorn workers × 15 = 30 max in-flight LLM calls across the process.
+_LLM_SEM_LIMIT = 15
+
+class _TrackedSemaphore:
+    """asyncio.Semaphore wrapper that exposes available slot count without
+    relying on the private ._value attribute."""
+    def __init__(self, limit: int):
+        self._sem = asyncio.Semaphore(limit)
+        self._limit = limit
+        self._active = 0
+
+    async def __aenter__(self):
+        await self._sem.acquire()
+        self._active += 1
+        return self
+
+    async def __aexit__(self, *_):
+        self._active -= 1
+        self._sem.release()
+
+    @property
+    def slots_free(self) -> int:
+        return self._limit - self._active
+
+_LLM_SEMAPHORE = _TrackedSemaphore(_LLM_SEM_LIMIT)
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,10 +66,12 @@ DB_PATH = Path(__file__).parent.parent / "data" / "query_logs.db"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: load model, connect Qdrant, build corpus index."""
-    from backend.rag_query import _get_model, _get_client
+    from backend.rag_query import _get_model, _get_reranker, _get_client
     from backend.corpus_index import CorpusIndex
-    print("Loading embedding model...")
+    print("Loading embedding model (BGE-M3)...")
     _get_model()
+    print("Loading reranker (BGE-reranker-v2-m3)...")
+    _get_reranker()
     print("Connecting to Qdrant...")
     _get_client()
     print("Building corpus index...")
@@ -54,7 +86,10 @@ async def lifespan(app: FastAPI):
         lf.flush()
 
 
-limiter = Limiter(key_func=get_remote_address)
+# Set DISABLE_RATE_LIMIT=true to bypass rate limiting (load testing / local dev).
+# In production this must always be false/unset.
+_rate_limit_enabled = os.getenv("DISABLE_RATE_LIMIT", "false").lower() != "true"
+limiter = Limiter(key_func=get_remote_address, enabled=_rate_limit_enabled)
 
 app = FastAPI(
     title="AntarDarshan API",
@@ -249,15 +284,54 @@ async def daily_wisdom(request: Request):
     }
 
 
+@app.get("/healthz")
+async def liveness():
+    """Lightweight liveness probe — never pings dependencies.
+    Kubernetes/load balancer should use this for liveness (restart on fail).
+    Returns 200 as long as the process is alive."""
+    return {"status": "alive"}
+
+
 @app.get("/api/health")
 async def health():
+    """
+    Health check. Returns 200 when all dependencies are up, 503 when degraded.
+    Used by Gunicorn readiness probe and load balancer health checks.
+    """
     from backend.sessions import sessions
-    return {
-        "status": "ok",
+    checks: dict[str, str] = {}
+    degraded = False
+
+    # 1. Qdrant
+    try:
+        from qdrant_client import QdrantClient
+        _qc = QdrantClient(url=os.getenv("QDRANT_URL", "http://localhost:6333"), timeout=3)
+        _qc.get_collections()
+        checks["qdrant"] = "ok"
+    except Exception as e:
+        checks["qdrant"] = f"error: {e}"
+        degraded = True
+
+    # 2. Corpus index (in-memory)
+    try:
+        corpus = app.state.corpus
+        checks["corpus"] = f"ok ({len(corpus.scriptures)} scriptures)"
+    except Exception:
+        checks["corpus"] = "not loaded"
+        degraded = True
+
+    # 3. LLM semaphore headroom
+    checks["llm_slots_free"] = str(_LLM_SEMAPHORE.slots_free)
+
+    status_code = 503 if degraded else 200
+    body = {
+        "status": "degraded" if degraded else "ok",
         "service": "antardarshan",
         "version": "0.1.0",
         "active_sessions": sessions.active_count,
+        "checks": checks,
     }
+    return JSONResponse(content=body, status_code=status_code)
 
 
 @app.delete("/api/session/{session_id}")
@@ -283,18 +357,20 @@ async def query_endpoint(request: Request, req: QueryRequest):
     from fastapi import HTTPException
     from datetime import datetime, timezone as _tz
 
-    # 1. Global org-level daily limit (SQLite)
+    # 1. Global org-level daily limit (SQLite) — run in thread (blocking I/O)
     GLOBAL_DAILY_LIMIT = 15_400
-    try:
-        _conn = sqlite3.connect(str(DB_PATH))
-        _today = datetime.now(_tz.utc).strftime("%Y-%m-%d")
-        _row = _conn.execute(
-            "SELECT COUNT(*) FROM query_logs WHERE DATE(created_at) = ?", (_today,)
-        ).fetchone()
-        _conn.close()
-        _global_used = _row[0] if _row else 0
-    except Exception:
-        _global_used = 0
+    def _check_global_quota():
+        try:
+            conn = sqlite3.connect(str(DB_PATH))
+            today = datetime.now(_tz.utc).strftime("%Y-%m-%d")
+            row = conn.execute(
+                "SELECT COUNT(*) FROM query_logs WHERE DATE(created_at) = ?", (today,)
+            ).fetchone()
+            conn.close()
+            return row[0] if row else 0
+        except Exception:
+            return 0
+    _global_used = await asyncio.to_thread(_check_global_quota)
 
     if _global_used >= GLOBAL_DAILY_LIMIT:
         raise HTTPException(
@@ -307,10 +383,10 @@ async def query_endpoint(request: Request, req: QueryRequest):
             },
         )
 
-    # 2. Per-user daily limit (Supabase)
-    user_id = verify_jwt(request.headers.get("Authorization"))
+    # 2. Per-user daily limit (Supabase) — run in thread (blocking HTTP)
+    user_id = await asyncio.to_thread(verify_jwt, request.headers.get("Authorization"))
     if user_id:
-        allowed, used, remaining = check_user_quota(user_id)
+        allowed, used, remaining = await asyncio.to_thread(check_user_quota, user_id)
         if not allowed:
             raise HTTPException(
                 status_code=429,
@@ -340,15 +416,19 @@ async def query_endpoint(request: Request, req: QueryRequest):
         hits = []
         mode = "conversational"
     else:
-        hits = search(req.query, top_k=req.top_k)
+        # search() is CPU-bound (bge-m3 encode + reranker) — run in thread
+        hits = await asyncio.to_thread(search, req.query, top_k=req.top_k)
 
     use_deep = (mode in ("comparison", "well_being"))
 
-    raw_answer, trace_id, model_used, tokens_used = generate_response(
-        req.query, hits, mode=mode, use_deep_model=use_deep,
-        conversation_history=history if history else None,
-        log_content=req.log_content,
-    )
+    async with _LLM_SEMAPHORE:
+        # generate_response() blocks on Groq HTTP (5-15s) — run in thread
+        raw_answer, trace_id, model_used, tokens_used = await asyncio.to_thread(
+            generate_response,
+            req.query, hits, mode=mode, use_deep_model=use_deep,
+            conversation_history=history if history else None,
+            log_content=req.log_content,
+        )
     latency_ms = int((time.time() - start) * 1000)
 
     # Parse immediately — use clean_answer everywhere so neither session memory
@@ -727,16 +807,23 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
     from backend.rag_query import search, detect_mode
     from backend.llm import generate_response_stream
 
-    # ── Quota checks (same as non-streaming endpoint) ─────────────────────────
+    # ── Quota checks — identical to non-streaming endpoint, all in threads ──────
     GLOBAL_DAILY_LIMIT = 15_400
-    try:
-        _conn2 = sqlite3.connect(str(DB_PATH))
-        _today2 = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%d")
-        _row2 = _conn2.execute("SELECT COUNT(*) FROM query_logs WHERE DATE(created_at) = ?", (_today2,)).fetchone()
-        _conn2.close()
-        _global_used2 = _row2[0] if _row2 else 0
-    except Exception:
-        _global_used2 = 0
+    from datetime import datetime, timezone as _tz2
+
+    def _check_global_quota_stream():
+        try:
+            conn = sqlite3.connect(str(DB_PATH))
+            today = datetime.now(_tz2.utc).strftime("%Y-%m-%d")
+            row = conn.execute(
+                "SELECT COUNT(*) FROM query_logs WHERE DATE(created_at) = ?", (today,)
+            ).fetchone()
+            conn.close()
+            return row[0] if row else 0
+        except Exception:
+            return 0
+
+    _global_used2 = await asyncio.to_thread(_check_global_quota_stream)
 
     if _global_used2 >= GLOBAL_DAILY_LIMIT:
         return JSONResponse(status_code=429, content={"detail": {
@@ -746,9 +833,9 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
 
     from backend.supabase_client import check_user_quota, log_user_query, persist_messages, ensure_conversation, verify_jwt, get_conversation
     from backend.sessions import sessions
-    stream_user_id = verify_jwt(request.headers.get("Authorization"))
+    stream_user_id = await asyncio.to_thread(verify_jwt, request.headers.get("Authorization"))
     if stream_user_id:
-        allowed, _, _ = check_user_quota(stream_user_id)
+        allowed, _, _ = await asyncio.to_thread(check_user_quota, stream_user_id)
         if not allowed:
             return JSONResponse(status_code=429, content={"detail": {
                 "error": "daily_limit_reached", "limit": 50,
@@ -769,7 +856,7 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
         hits = []
         mode = "conversational"
     else:
-        hits = search(req.query, top_k=req.top_k)
+        hits = await asyncio.to_thread(search, req.query, top_k=req.top_k)
 
     use_deep = mode in ("comparison", "well_being")
 
@@ -784,24 +871,85 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
     ]
 
     async def event_stream():
-        gen = generate_response_stream(
-            req.query, hits, mode=mode, use_deep_model=use_deep,
-            conversation_history=history if history else None,
-            log_content=req.log_content,
-        )
+        """
+        Thread+queue pattern: generate_response_stream() runs in a thread pool
+        worker. Tokens arrive via asyncio.Queue so next(gen) never blocks the
+        event loop. The semaphore is held for the full stream lifetime.
+
+        Client disconnect safety: stop_event signals the producer thread to
+        exit early. Without this, a full bounded queue would cause the producer
+        to block indefinitely on fut.result() after the consumer is cancelled.
+        """
+        import threading
+        stop_event = threading.Event()
+        # Bounded queue — producer blocks when full (backpressure for slow clients)
+        token_queue: asyncio.Queue = asyncio.Queue(maxsize=32)
+        loop = asyncio.get_running_loop()
+        result_holder: list = []
+
+        def _run_stream():
+            """Blocking generator — runs in thread pool, pushes to bounded queue."""
+            try:
+                _gen = generate_response_stream(
+                    req.query, hits, mode=mode, use_deep_model=use_deep,
+                    conversation_history=history if history else None,
+                    log_content=req.log_content,
+                )
+                try:
+                    while not stop_event.is_set():
+                        token = next(_gen)
+                        fut = asyncio.run_coroutine_threadsafe(
+                            token_queue.put(("token", token)), loop
+                        )
+                        # Timeout prevents permanent block if consumer cancelled
+                        try:
+                            fut.result(timeout=5.0)
+                        except Exception:
+                            break  # consumer gone or timed out — exit cleanly
+                except StopIteration as e:
+                    result_holder.append(e.value)
+            except Exception as exc:
+                result_holder.append(None)
+                if not stop_event.is_set():
+                    asyncio.run_coroutine_threadsafe(
+                        token_queue.put(("error", str(exc))), loop
+                    )
+            finally:
+                asyncio.run_coroutine_threadsafe(
+                    token_queue.put(("done", None)), loop
+                )
+
         answer_parts = []
         trace_id = None
         model_used = None
         tokens_used = 0
 
-        try:
-            while True:
-                token = next(gen)
-                answer_parts.append(token)
-                yield f"data: {_json.dumps({'type': 'token', 'content': token})}\n\n"
-        except StopIteration as e:
-            if e.value:
-                trace_id, model_used, tokens_used = e.value
+        async with _LLM_SEMAPHORE:
+            gen_future = loop.run_in_executor(None, _run_stream)
+
+            try:
+                while True:
+                    event_type, payload = await token_queue.get()
+                    if event_type == "done":
+                        break
+                    if event_type == "error":
+                        yield f"data: {_json.dumps({'type': 'error', 'content': 'Stream error'})}\n\n"
+                        break
+                    answer_parts.append(payload)
+                    yield f"data: {_json.dumps({'type': 'token', 'content': payload})}\n\n"
+            except asyncio.CancelledError:
+                # Client disconnected — signal producer and wait briefly for cleanup
+                stop_event.set()
+                try:
+                    await asyncio.wait_for(asyncio.wrap_future(gen_future), timeout=2.0)
+                except (asyncio.TimeoutError, Exception):
+                    pass
+                return
+
+            await asyncio.wait_for(asyncio.wrap_future(gen_future), timeout=5.0)
+
+        if result_holder and result_holder[0]:
+            trace_id, model_used, tokens_used = result_holder[0]
 
         raw_answer = "".join(answer_parts)
 
@@ -866,12 +1014,14 @@ async def explain_verse(request: Request, req: ExplainRequest):
              "verse": v["verse"], "translator": v["translator"], "tradition": v["tradition"],
              "parent_text": "", "year": v.get("year", "")} for v in context_verses]
 
-    explanation_text, _, _, _ = generate_response(
-        f"Explain this verse in depth: {verse['text']}",
-        hits,
-        mode="exploration",
-        use_deep_model=False,
-    )
+    async with _LLM_SEMAPHORE:
+        explanation_text, _, _, _ = await asyncio.to_thread(
+            generate_response,
+            f"Explain this verse in depth: {verse['text']}",
+            hits,
+            mode="exploration",
+            use_deep_model=False,
+        )
     return {"verse": verse, "explanation": explanation_text, "context_verses": context_verses}
 
 
