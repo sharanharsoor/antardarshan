@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import { ArrowLeft, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Share2, MessageCircle, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
-import { getChapter, getScriptureDetail, explainVerse, type Verse } from "@/lib/api";
+import { ArrowLeft, ChevronLeft, ChevronRight, Bookmark, BookmarkCheck, Share2, MessageCircle, ArrowUp, ArrowDown, Trash2, Flag } from "lucide-react";
+import { getChapter, getScriptureDetail, explainVerse, submitIssueReport, ISSUE_TYPE_LABELS, type IssueType, type Verse } from "@/lib/api";
+import { createClient } from "@/utils/supabase/client";
 import {
   saveProgress, addBookmark, removeBookmark, getBookmarksForSlug,
   getHighlightsForChapter, saveHighlight, deleteHighlight, updateHighlightNote,
@@ -179,6 +180,12 @@ export default function ChapterReadingPage() {
   const [savingNote, setSavingNote] = useState(false);
   const [highlightError, setHighlightError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  // ── Issue report form ────────────────────────────────────────────────────────
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportType, setReportType] = useState<IssueType>("ocr_garbage");
+  const [reportComment, setReportComment] = useState("");
+  const [reportStatus, setReportStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
@@ -215,8 +222,26 @@ export default function ChapterReadingPage() {
       if (userIdResult.status === "fulfilled") {
         setCurrentUserId(userIdResult.value);
       }
-    }).finally(() => setLoading(false));
+      // Also load access token for issue reporting
+    createClient().auth.getSession().then(({ data: { session } }) => {
+      if (session) setAccessToken(session.access_token);
+    });
+  }).finally(() => setLoading(false));
   }, [slug, chapter]);
+
+  const handleSubmitReport = async () => {
+    if (!accessToken || !scriptureName) return;
+    setReportStatus("submitting");
+    try {
+      const result = await submitIssueReport(
+        { slug, scripture: scriptureName, chapter, issue_type: reportType, comment: reportComment || undefined },
+        accessToken,
+      );
+      setReportStatus(result.saved ? "done" : "error");
+    } catch {
+      setReportStatus("error");
+    }
+  };
 
   // Auto-scroll to deep-linked verse
   useEffect(() => {
@@ -587,12 +612,59 @@ export default function ChapterReadingPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-center mb-6">
+      <div className="flex items-center justify-between mb-6">
         <Link href={`/read/${slug}`} className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />
           Contents
         </Link>
+        {accessToken && reportStatus !== "done" && (
+          <button
+            onClick={() => setReportOpen((o) => !o)}
+            className="inline-flex items-center gap-1 text-xs text-muted/40 hover:text-muted transition-colors"
+            title="Report an issue with this chapter"
+          >
+            <Flag className="h-3 w-3" />
+            {reportOpen ? "Cancel" : "Report issue"}
+          </button>
+        )}
+        {accessToken && reportStatus === "done" && (
+          <span className="text-xs text-muted/50">✓ Issue reported</span>
+        )}
       </div>
+
+      {/* Report form — inline below header, always in view */}
+      {accessToken && reportOpen && reportStatus !== "done" && (
+        <div className="mb-6 rounded-xl border border-border bg-surface p-4 space-y-3">
+          <p className="text-xs font-medium text-muted">What&apos;s wrong with this chapter?</p>
+          <select
+            value={reportType}
+            onChange={(e) => setReportType(e.target.value as IssueType)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            {(Object.entries(ISSUE_TYPE_LABELS) as [IssueType, string][]).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+          <textarea
+            value={reportComment}
+            onChange={(e) => setReportComment(e.target.value)}
+            placeholder="Optional: describe the issue…"
+            rows={2}
+            maxLength={1000}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:ring-1 focus:ring-accent resize-none"
+          />
+          {reportStatus === "error" && (
+            <p className="text-xs text-red-400">Failed to submit — please try again.</p>
+          )}
+          <button
+            onClick={handleSubmitReport}
+            disabled={reportStatus === "submitting"}
+            className="rounded-lg bg-accent px-4 py-1.5 text-xs text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
+          >
+            {reportStatus === "submitting" ? "Submitting…" : "Submit report"}
+          </button>
+        </div>
+      )}
 
       {/* Chapter title */}
       <div className="mb-8">

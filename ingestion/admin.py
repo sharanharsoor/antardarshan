@@ -310,6 +310,53 @@ def cmd_book_feedback(args):
     print(f"\n  Total: {total_up + total_down} ratings — {total_up} up, {total_down} down\n")
 
 
+def cmd_issues(args):
+    """Show open issue reports grouped by scripture (OCR errors, wrong content, etc.)."""
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_KEY")
+    if not url or not key:
+        print("ERROR: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.")
+        return
+
+    status_filter = getattr(args, "status", "open")
+
+    try:
+        from supabase import create_client
+        sb = create_client(url, key)
+        query = sb.table("issue_reports").select("scripture,chapter,verse,issue_type,comment,status,created_at")
+        if status_filter != "all":
+            query = query.eq("status", status_filter)
+        rows = query.order("created_at", desc=True).execute()
+    except Exception as e:
+        print(f"ERROR: Could not fetch issues: {e}")
+        return
+
+    if not rows.data:
+        print(f"No {status_filter} issue reports found.")
+        return
+
+    from collections import defaultdict
+    by_scripture: dict[str, list] = defaultdict(list)
+    for row in rows.data:
+        by_scripture[row["scripture"]].append(row)
+
+    print(f"\n{'='*70}")
+    print(f"Issue Reports ({status_filter}) — {len(rows.data)} total")
+    print(f"{'='*70}\n")
+
+    for scripture, issues in sorted(by_scripture.items()):
+        print(f"  {scripture} ({len(issues)} issues)")
+        for r in issues:
+            loc = f"Ch {r['chapter']}" + (f" V{r['verse']}" if r.get("verse") else "")
+            comment = f" — {r['comment'][:60]}" if r.get("comment") else ""
+            print(f"    [{r['status']:12s}] {loc:10s} {r['issue_type']:20s}{comment}")
+        print()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="AntarDarshan incremental indexing admin",
@@ -346,6 +393,12 @@ def main():
     # book-feedback
     sub.add_parser("book-feedback", help="Show thumbs up/down counts per scripture")
 
+    # issues
+    p_issues = sub.add_parser("issues", help="Show user-reported text issues")
+    p_issues.add_argument("--status", default="open",
+                          choices=["open", "acknowledged", "fixed", "wontfix", "all"],
+                          help="Filter by status (default: open)")
+
     args = parser.parse_args()
     {
         "status": cmd_status,
@@ -354,6 +407,7 @@ def main():
         "reindex": cmd_reindex,
         "verify": cmd_verify,
         "book-feedback": cmd_book_feedback,
+        "issues": cmd_issues,
     }[args.command](args)
 
 

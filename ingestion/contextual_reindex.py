@@ -41,6 +41,10 @@ import time
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+# FP16 halves RAM (~1GB vs ~2GB). Default OFF for CPU safety.
+# Set BGE_FP16=true on Apple Silicon / GPU environments.
+_use_fp16: bool = os.getenv("BGE_FP16", "false").lower() == "true"
 from qdrant_client import QdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 
@@ -206,7 +210,7 @@ def embed_texts(texts: list[str]) -> tuple:
     """Embed texts with bge-m3 (dense + sparse)."""
     from FlagEmbedding import BGEM3FlagModel
     print(f"  Loading bge-m3 for {len(texts)} texts...")
-    model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=False)
+    model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=_use_fp16)
     output = model.encode(texts, return_dense=True, return_sparse=True, batch_size=16)
     return output["dense_vecs"], output["lexical_weights"]
 
@@ -308,7 +312,7 @@ def run_template_mode(args):
 
     from FlagEmbedding import BGEM3FlagModel
     print("Loading bge-m3 (loads once, used for all windows)...")
-    model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=False)
+    model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=_use_fp16)
 
     for w in range(n_windows):
         start = w * window_size
@@ -390,7 +394,7 @@ def run_llm_mode(args):
 
     from FlagEmbedding import BGEM3FlagModel
     print("Loading bge-m3...")
-    embed_model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=False)
+    embed_model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=_use_fp16)
 
     batch = []
     delay = 60.0 / rate_limit  # seconds between requests

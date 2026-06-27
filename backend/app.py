@@ -858,6 +858,57 @@ async def get_book_feedback(request: Request):
     return {"ratings": ratings}
 
 
+# ── Issue reports ──────────────────────────────────────────────────────────────
+
+VALID_ISSUE_TYPES = {"ocr_garbage", "wrong_content", "missing_text", "formatting", "offensive", "other"}
+
+class IssueReportRequest(BaseModel):
+    slug: str = Field(..., min_length=1, max_length=200)
+    scripture: str = Field(..., min_length=1, max_length=200)
+    chapter: int = Field(..., ge=1)
+    verse: int | None = Field(None, ge=1)
+    issue_type: str = Field(..., description="One of: ocr_garbage, wrong_content, missing_text, formatting, offensive, other")
+    comment: str | None = Field(None, max_length=1000)
+
+    def model_post_init(self, __context):
+        if self.issue_type not in VALID_ISSUE_TYPES:
+            raise ValueError(f"issue_type must be one of {sorted(VALID_ISSUE_TYPES)}")
+
+
+@app.post("/api/issues")
+@limiter.limit("20/hour")
+async def submit_issue_report(request: Request, req: IssueReportRequest):
+    """
+    Report an issue with a chapter or verse (OCR error, wrong content, etc.).
+    Requires auth. Uses existing issue_reports table (20260621_remaining_tables.sql).
+    """
+    from backend.supabase_client import verify_jwt
+
+    user_id = await asyncio.to_thread(verify_jwt, request.headers.get("Authorization"))
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Sign in to report issues")
+
+    saved = False
+    try:
+        from backend.supabase_client import get_supabase
+        sb = get_supabase()
+        sb.table("issue_reports").insert({
+            "user_id": user_id,
+            "slug": req.slug,
+            "scripture": req.scripture,
+            "chapter": req.chapter,
+            "verse": req.verse,
+            "issue_type": req.issue_type,
+            "comment": req.comment,
+            "status": "open",
+        }).execute()
+        saved = True
+    except Exception as e:
+        print(f"  Issue report error: {e}")
+
+    return {"ok": True, "saved": saved}
+
+
 @app.post("/api/query/stream")
 @limiter.limit("60/hour")
 async def query_endpoint_stream(request: Request, req: QueryRequest):

@@ -303,6 +303,44 @@ export async function submitBookFeedback(
   return { saved: data.saved ?? false };
 }
 
+// ── Issue reports ─────────────────────────────────────────────────────────────
+
+export type IssueType = "ocr_garbage" | "wrong_content" | "missing_text" | "formatting" | "offensive" | "other";
+
+export const ISSUE_TYPE_LABELS: Record<IssueType, string> = {
+  ocr_garbage:    "OCR / garbled text",
+  wrong_content:  "Wrong content or attribution",
+  missing_text:   "Missing or truncated text",
+  formatting:     "Formatting problem",
+  offensive:      "Offensive or inappropriate",
+  other:          "Other",
+};
+
+/** Report an issue with a chapter or verse. Requires auth. */
+export async function submitIssueReport(
+  payload: {
+    slug: string;
+    scripture: string;
+    chapter: number;
+    verse?: number;
+    issue_type: IssueType;
+    comment?: string;
+  },
+  accessToken: string,
+): Promise<{ saved: boolean }> {
+  const res = await fetch(`${API_BASE}/api/issues`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Issue report failed: ${res.status}`);
+  const data = await res.json();
+  return { saved: data.saved ?? false };
+}
+
 /** Fetch the current user's ratings: { [scripture]: 1 | -1 } */
 export async function getBookFeedback(accessToken: string): Promise<Record<string, 1 | -1>> {
   const res = await fetch(`${API_BASE}/api/feedback/book`, {

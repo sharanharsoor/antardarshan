@@ -21,6 +21,10 @@ import os
 import argparse
 from pathlib import Path
 from dotenv import load_dotenv
+
+# FP16 halves RAM (~1GB vs ~2GB). Default OFF for CPU safety.
+# Set BGE_FP16=true on Apple Silicon / GPU environments.
+_use_fp16: bool = os.getenv("BGE_FP16", "false").lower() == "true"
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance, VectorParams, PointStruct, SparseVectorParams, SparseVector,
@@ -88,7 +92,7 @@ def embed_prod(texts: list[str]):
     from FlagEmbedding import BGEM3FlagModel
 
     print("  Loading BAAI/bge-m3 (production, 1024 dims + sparse)...")
-    model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=False)
+    model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=_use_fp16)
 
     print(f"  Encoding {len(texts)} texts (dense + sparse in one pass)...")
     output = model.encode(texts, return_dense=True, return_sparse=True, batch_size=16)
@@ -241,7 +245,7 @@ def main():
     if args.mode == "prod":
         from FlagEmbedding import BGEM3FlagModel
         print("  Loading BAAI/bge-m3 (production)...")
-        model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=False)
+        model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=_use_fp16)
     else:
         from sentence_transformers import SentenceTransformer
         print("  Loading all-MiniLM-L6-v2 (dev)...")
