@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { BookOpen } from "lucide-react";
-import { getLibrary, type Scripture } from "@/lib/api";
+import { Suspense, useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { BookOpen, ThumbsUp, ThumbsDown } from "lucide-react";
+import { getLibrary, submitBookFeedback, getBookFeedback, type Scripture } from "@/lib/api";
+import { createClient } from "@/utils/supabase/client";
 
 const TRADITION_LABELS: Record<string, string> = {
   hindu_vedanta: "Vedanta",
@@ -38,18 +38,50 @@ function LibraryLoading() {
 
 function LibraryPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [scriptures, setScriptures] = useState<Scripture[]>([]);
-  // Initialise from URL ?filter= so landing-page tradition cards deep-link correctly
   const [filter, setFilter] = useState<string>(searchParams.get("filter") ?? "all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // { [scripture]: 1 | -1 } — current user's ratings
+  const [ratings, setRatings] = useState<Record<string, 1 | -1>>({});
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   useEffect(() => {
     getLibrary()
       .then(setScriptures)
       .catch(() => setError("Could not load library. Tap to retry."))
       .finally(() => setLoading(false));
+
+    // Load auth + user's book ratings
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      const token = session.access_token;
+      setAccessToken(token);
+      getBookFeedback(token).then(setRatings).catch(() => {});
+    });
   }, []);
+
+  const handleRate = useCallback(async (
+    e: React.MouseEvent,
+    scripture: string,
+    rating: 1 | -1,
+  ) => {
+    e.stopPropagation();
+    if (!accessToken || ratings[scripture] === rating) return; // no-op if same
+    const prev = ratings[scripture];
+    setRatings((r) => ({ ...r, [scripture]: rating })); // optimistic
+    submitBookFeedback(scripture, rating, accessToken).catch(() => {
+      // Revert on failure
+      setRatings((r) => {
+        const updated = { ...r };
+        if (prev !== undefined) updated[scripture] = prev;
+        else delete updated[scripture];
+        return updated;
+      });
+    });
+  }, [accessToken, ratings]);
 
   const traditions = [...new Set(scriptures.map((s) => s.tradition))];
   const filtered = filter === "all" ? scriptures : scriptures.filter((s) => s.tradition === filter);
@@ -116,10 +148,10 @@ function LibraryPageContent() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {texts.map((scripture) => (
-              <Link
+              <div
                 key={scripture.slug}
-                href={`/read/${scripture.slug}`}
-                className="group rounded-xl border border-border p-5 hover:bg-surface hover:border-accent/30 transition-all"
+                onClick={() => router.push(`/read/${scripture.slug}`)}
+                className="group rounded-xl border border-border p-5 hover:bg-surface hover:border-accent/30 transition-all cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="font-serif font-semibold text-base group-hover:text-accent transition-colors">
@@ -132,7 +164,37 @@ function LibraryPageContent() {
                   <p>{scripture.total_chapters} chapters &middot; {scripture.total_verses} verses</p>
                   <p>{scripture.translator}, {scripture.year}</p>
                 </div>
-              </Link>
+
+                {/* Thumbs — only for signed-in users */}
+                {accessToken && (
+                  <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border/50">
+                    <button
+                      onClick={(e) => handleRate(e, scripture.scripture, 1)}
+                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                        ratings[scripture.scripture] === 1
+                          ? "bg-green-900/30 text-green-400"
+                          : "text-muted hover:text-green-400 hover:bg-surface"
+                      }`}
+                      title="Helpful"
+                      aria-label="Thumbs up"
+                    >
+                      <ThumbsUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={(e) => handleRate(e, scripture.scripture, -1)}
+                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                        ratings[scripture.scripture] === -1
+                          ? "bg-red-900/30 text-red-400"
+                          : "text-muted hover:text-red-400 hover:bg-surface"
+                      }`}
+                      title="Not helpful"
+                      aria-label="Thumbs down"
+                    >
+                      <ThumbsDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </div>

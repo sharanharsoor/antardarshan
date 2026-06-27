@@ -258,9 +258,56 @@ def cmd_reindex(args):
     """Remove + re-add a single scripture."""
     print(f"\nReindexing: {args.scripture}")
     cmd_remove(args)
-    # For reindex, the processed JSON was just deleted — re-run add with same params
     print("\nNote: reindex removed the processed JSON.")
     print("Run 'python -m ingestion.admin add <raw_file> --scripture ...' to re-add.")
+
+
+def cmd_book_feedback(args):
+    """Show book feedback ratings aggregated per scripture (thumbs up/down counts)."""
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_KEY")
+    if not url or not key:
+        print("ERROR: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.")
+        return
+
+    try:
+        from supabase import create_client
+        sb = create_client(url, key)
+        rows = sb.table("book_feedback").select("scripture,rating").execute()
+    except Exception as e:
+        print(f"ERROR: Could not fetch book feedback: {e}")
+        return
+
+    if not rows.data:
+        print("No book feedback recorded yet.")
+        return
+
+    from collections import defaultdict
+    counts: dict[str, dict[str, int]] = defaultdict(lambda: {"up": 0, "down": 0})
+    for row in rows.data:
+        key_name = row["scripture"]
+        if row["rating"] == 1:
+            counts[key_name]["up"] += 1
+        else:
+            counts[key_name]["down"] += 1
+
+    print(f"\n{'='*60}")
+    print(f"Book Feedback — {len(counts)} texts rated")
+    print(f"{'='*60}\n")
+    print(f"  {'Scripture':<45} {'👍':>4} {'👎':>4}")
+    print("  " + "-" * 55)
+
+    # Sort by total feedback volume (most-rated first)
+    for scripture, c in sorted(counts.items(), key=lambda x: -(x[1]["up"] + x[1]["down"])):
+        print(f"  {scripture:<45} {c['up']:>4} {c['down']:>4}")
+
+    total_up = sum(c["up"] for c in counts.values())
+    total_down = sum(c["down"] for c in counts.values())
+    print(f"\n  Total: {total_up + total_down} ratings — {total_up} up, {total_down} down\n")
 
 
 def main():
@@ -296,6 +343,9 @@ def main():
     # verify
     sub.add_parser("verify", help="Cross-check JSON vs Qdrant counts")
 
+    # book-feedback
+    sub.add_parser("book-feedback", help="Show thumbs up/down counts per scripture")
+
     args = parser.parse_args()
     {
         "status": cmd_status,
@@ -303,6 +353,7 @@ def main():
         "remove": cmd_remove,
         "reindex": cmd_reindex,
         "verify": cmd_verify,
+        "book-feedback": cmd_book_feedback,
     }[args.command](args)
 
 

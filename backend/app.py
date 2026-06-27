@@ -791,6 +791,61 @@ async def submit_feedback(request: Request, req: FeedbackRequest):
     return {"ok": True}
 
 
+# ── Book feedback ──────────────────────────────────────────────────────────────
+
+class BookFeedbackRequest(BaseModel):
+    scripture: str = Field(..., min_length=1, max_length=200)
+    rating: int = Field(..., description="1=thumbs up, -1=thumbs down")
+
+    def model_post_init(self, __context):
+        if self.rating not in (1, -1):
+            raise ValueError("rating must be 1 or -1")
+
+
+@app.post("/api/feedback/book")
+@limiter.limit("60/hour")
+async def submit_book_feedback(request: Request, req: BookFeedbackRequest):
+    """Rate a scripture thumbs up or down. Requires auth. Upserts — re-rating overwrites."""
+    from backend.supabase_client import verify_jwt
+
+    user_id = await asyncio.to_thread(verify_jwt, request.headers.get("Authorization"))
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Sign in to rate books")
+
+    try:
+        from backend.supabase_client import get_supabase
+        sb = get_supabase()
+        sb.table("book_feedback").upsert(
+            {"user_id": user_id, "scripture": req.scripture, "rating": req.rating},
+            on_conflict="user_id,scripture",
+        ).execute()
+    except Exception as e:
+        print(f"  Book feedback error (non-critical): {e}")
+
+    return {"ok": True, "scripture": req.scripture, "rating": req.rating}
+
+
+@app.get("/api/feedback/book")
+@limiter.limit("60/minute")
+async def get_book_feedback(request: Request):
+    """Return the authenticated user's book ratings as {scripture: rating}."""
+    from backend.supabase_client import verify_jwt
+
+    user_id = await asyncio.to_thread(verify_jwt, request.headers.get("Authorization"))
+    if not user_id:
+        return {"ratings": {}}
+
+    try:
+        from backend.supabase_client import get_supabase
+        sb = get_supabase()
+        rows = sb.table("book_feedback").select("scripture,rating").eq("user_id", user_id).execute()
+        ratings = {r["scripture"]: r["rating"] for r in (rows.data or [])}
+    except Exception:
+        ratings = {}
+
+    return {"ratings": ratings}
+
+
 @app.post("/api/query/stream")
 @limiter.limit("60/hour")
 async def query_endpoint_stream(request: Request, req: QueryRequest):

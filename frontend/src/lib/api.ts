@@ -280,3 +280,32 @@ export async function deleteSession(sessionId: string): Promise<void> {
 
 // Bookmarks are managed directly via Supabase client in lib/supabase-reader.ts
 // No backend /api/bookmarks/* endpoints exist — these functions were removed.
+
+// ── Book feedback ─────────────────────────────────────────────────────────────
+
+/** Submit or update a thumbs up/down rating for a scripture. Requires auth. */
+export async function submitBookFeedback(
+  scripture: string,
+  rating: 1 | -1,
+  accessToken: string,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/feedback/book`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ scripture, rating }),
+  });
+  if (!res.ok) throw new Error(`Book feedback failed: ${res.status}`);
+}
+
+/** Fetch the current user's ratings: { [scripture]: 1 | -1 } */
+export async function getBookFeedback(accessToken: string): Promise<Record<string, 1 | -1>> {
+  const res = await fetch(`${API_BASE}/api/feedback/book`, {
+    headers: { "Authorization": `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return {};
+  const data = await res.json();
+  return data.ratings ?? {};
+}
