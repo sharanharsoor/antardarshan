@@ -57,6 +57,8 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
   const [quota, setQuota] = useState<QuotaStatus | null>(null);
   const [userQuota, setUserQuota] = useState<UserQuotaStatus | null>(null);
+  const [backendDown, setBackendDown] = useState(false);
+  const [retryCountdown, setRetryCountdown] = useState(0);
   // Default sidebar open on desktop (>768px), closed on mobile
   const [sidebarOpen, setSidebarOpen] = useState(
     typeof window !== "undefined" && window.innerWidth >= 768
@@ -240,6 +242,37 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
     getQuotaStatus().then(setQuota).catch(() => {});
   }, []);
 
+  // Backend health probe — initial check on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/healthz`, { method: "GET", cache: "no-store" })
+      .then((r) => setBackendDown(!r.ok))
+      .catch(() => setBackendDown(true));
+  }, []);
+
+  // When backend is down: poll every 15s + show countdown; stop when recovered
+  useEffect(() => {
+    if (!backendDown) { setRetryCountdown(0); return; }
+
+    const RETRY_SECS = 15;
+    setRetryCountdown(RETRY_SECS);
+
+    const healthInterval = setInterval(() => {
+      fetch(`${API_BASE}/healthz`, { method: "GET", cache: "no-store" })
+        .then((r) => { if (r.ok) setBackendDown(false); })
+        .catch(() => {});
+      setRetryCountdown(RETRY_SECS);
+    }, RETRY_SECS * 1000);
+
+    const countdownInterval = setInterval(() => {
+      setRetryCountdown((n) => (n > 0 ? n - 1 : 0));
+    }, 1000);
+
+    return () => {
+      clearInterval(healthInterval);
+      clearInterval(countdownInterval);
+    };
+  }, [backendDown]);
+
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -383,8 +416,11 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
       } else if (status === 408) {
         errorContent = "The response took too long. The server may be busy — please try again in a moment.";
       } else if (status === 500) {
-        // Backend stream error (Groq failure, rate limit, etc.)
         errorContent = "Something went wrong while generating the response. Please try again.";
+      } else if (status === 503) {
+        // Backend degraded — trigger the health banner so user sees status
+        setBackendDown(true);
+        errorContent = "The server is temporarily unavailable. It will recover automatically.";
       }
       // Replace the stale placeholder (if it exists) rather than appending a second message
       setMessages((prev) => {
@@ -488,7 +524,31 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
     : quota?.status === "exhausted";
 
   return (
-    <div className="fixed inset-0 top-14 flex bg-background">
+    <div className="fixed inset-0 top-14 flex flex-col bg-background">
+      {/* 503 backend-down banner — auto-dismisses when health recovers */}
+      {backendDown && (
+        <div className="flex items-center justify-between gap-3 bg-amber-950/60 border-b border-amber-800/40 px-4 py-2 text-xs text-amber-200/90 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <span>Server is temporarily unavailable — retrying automatically</span>
+            {retryCountdown > 0 && (
+              <span className="text-amber-400/70">({retryCountdown}s)</span>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              fetch(`${API_BASE}/healthz`, { cache: "no-store" })
+                .then((r) => { if (r.ok) setBackendDown(false); })
+                .catch(() => {});
+            }}
+            className="text-amber-300/70 hover:text-amber-200 transition-colors text-xs underline underline-offset-2"
+          >
+            Retry now
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-1 overflow-hidden">
       {/* Sidebar — only for logged-in users, toggleable */}
       {user && sidebarOpen && (
         <ConversationSidebar
@@ -839,6 +899,7 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
             <Link href="/ask" className="text-accent hover:underline">Start your own →</Link>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
