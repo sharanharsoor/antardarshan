@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { scriptureToSlug, clearApiCache, getLibrary, getCorpusStats } from "@/lib/api";
+import { scriptureToSlug, clearApiCache, getLibrary, getCorpusStats, submitIssueReport } from "@/lib/api";
 
 // ── scriptureToSlug ───────────────────────────────────────────────────────────
 
@@ -18,6 +18,10 @@ describe("scriptureToSlug", () => {
 
   it("handles already-slug strings unchanged", () => {
     expect(scriptureToSlug("dhammapada")).toBe("dhammapada");
+  });
+
+  it("strips leading and trailing separators", () => {
+    expect(scriptureToSlug("...Bhagavad Gita!!!")).toBe("bhagavad-gita");
   });
 });
 
@@ -95,5 +99,75 @@ describe("getCorpusStats cache", () => {
     await getCorpusStats();
     await getCorpusStats();
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("submitIssueReport", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("sends auth header and returns saved flag", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ saved: true }),
+      })
+    );
+
+    const result = await submitIssueReport(
+      {
+        slug: "bhagavad-gita",
+        scripture: "Bhagavad Gita",
+        chapter: 2,
+        issue_type: "formatting",
+        comment: "spacing issue",
+      },
+      "tok-123"
+    );
+
+    expect(result.saved).toBe(true);
+    const init = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit;
+    expect((init.headers as Record<string, string>)["Authorization"]).toBe("Bearer tok-123");
+  });
+
+  it("defaults to saved=false when backend omits saved", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      })
+    );
+
+    const result = await submitIssueReport(
+      {
+        slug: "bhagavad-gita",
+        scripture: "Bhagavad Gita",
+        chapter: 2,
+        issue_type: "other",
+      },
+      "tok-123"
+    );
+
+    expect(result.saved).toBe(false);
+  });
+
+  it("throws on non-ok response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 503 })
+    );
+
+    await expect(
+      submitIssueReport(
+        {
+          slug: "bhagavad-gita",
+          scripture: "Bhagavad Gita",
+          chapter: 2,
+          issue_type: "other",
+        },
+        "tok-123"
+      )
+    ).rejects.toThrow("503");
   });
 });

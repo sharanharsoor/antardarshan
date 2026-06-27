@@ -187,6 +187,25 @@ export default function ChapterReadingPage() {
   const [reportComment, setReportComment] = useState("");
   const [reportStatus, setReportStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
 
+  // Keep auth token reactive so report UI works without page reload after sign in/out.
+  useEffect(() => {
+    const supabase = createClient();
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted) setAccessToken(session?.access_token ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAccessToken(session?.access_token ?? null);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   // ── Data loading ────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -222,22 +241,25 @@ export default function ChapterReadingPage() {
       if (userIdResult.status === "fulfilled") {
         setCurrentUserId(userIdResult.value);
       }
-      // Also load access token for issue reporting
-    createClient().auth.getSession().then(({ data: { session } }) => {
-      if (session) setAccessToken(session.access_token);
-    });
   }).finally(() => setLoading(false));
   }, [slug, chapter]);
 
   const handleSubmitReport = async () => {
     if (!accessToken || !scriptureName) return;
     setReportStatus("submitting");
+    const comment = reportComment.trim();
     try {
       const result = await submitIssueReport(
-        { slug, scripture: scriptureName, chapter, issue_type: reportType, comment: reportComment || undefined },
+        { slug, scripture: scriptureName, chapter, issue_type: reportType, comment: comment || undefined },
         accessToken,
       );
-      setReportStatus(result.saved ? "done" : "error");
+      if (result.saved) {
+        setReportStatus("done");
+        setReportOpen(false);
+        setReportComment("");
+      } else {
+        setReportStatus("error");
+      }
     } catch {
       setReportStatus("error");
     }

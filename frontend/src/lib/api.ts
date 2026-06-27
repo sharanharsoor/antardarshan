@@ -271,7 +271,7 @@ export async function getQuotaStatus(): Promise<QuotaStatus> {
 
 /** Derive URL-safe slug from scripture name — must match backend's _make_slug() exactly. */
 export function scriptureToSlug(scripture: string): string {
-  return scripture.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "");
+  return scripture.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
