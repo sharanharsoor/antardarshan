@@ -20,10 +20,12 @@ interface DailyWisdom {
 }
 
 const EXAMPLE_QUERIES = [
-  "What does the Gita say about duty?",
-  "What does the Gita teach about overcoming fear and grief?",
-  "How does Vedanta differ from Buddhism on the self?",
-  "How does Dharma change across different ages?",
+  "How do I stop being so angry?",
+  "What is consciousness?",
+  "I feel lost and don't know my purpose",
+  "What happens after death?",
+  "hatred is never laid to rest by hate",
+  "What is karma and how does it work?",
 ];
 
 

@@ -141,11 +141,11 @@ function LibraryPageContent() {
       {/* Stats footer */}
       <div className="text-center text-sm text-muted mt-8 pt-6 border-t border-border space-y-1">
         <p>
-          {scriptures.length} texts with clean readable text shown above
+          {scriptures.length} texts available to read above
         </p>
         <p className="text-xs text-muted/70">
-          Additional classical texts (Mahabharata, Ramayana, Manu Smriti, Arthashastra, Agni Purana&hellip;)
-          are indexed for AI search but excluded from reading view due to OCR quality.
+          More texts (Manu Smriti, Arthashastra, Agni Purana, Brahma Sutras&hellip;) are indexed for AI search
+          — ask a question and they will appear as citations.
         </p>
       </div>
     </div>

@@ -80,17 +80,16 @@ def cmd_status(args):
     print(f"{'='*60}")
 
     json_files = sorted(CORPUS_PROCESSED.glob("*.json"))
-    total_chunks = 0
-    scripture_counts = {}
+    scripture_counts: dict[str, int] = {}
 
     for jf in json_files:
         chunks = json.loads(jf.read_text())
-        if not chunks:
-            continue
-        scripture = chunks[0]["scripture"]
-        count = len(chunks)
-        total_chunks += count
-        scripture_counts[scripture] = count
+        for chunk in chunks:
+            scripture = chunk.get("scripture", "")
+            if scripture:
+                scripture_counts[scripture] = scripture_counts.get(scripture, 0) + 1
+
+    total_chunks = sum(scripture_counts.values())
 
     print(f"\nProcessed JSON files: {len(json_files)}")
     print(f"Total chunks in JSON: {total_chunks}")
@@ -173,40 +172,69 @@ def cmd_remove(args):
     )
     print(f"  Qdrant delete result: {result}")
 
-    # Remove processed JSON
+    # Remove scripture chunks from processed JSON.
+    # For multi-scripture files, rewrite only the remaining chunks.
     removed_files = []
+    rewritten_files = []
+    removed_chunk_count = 0
     for jf in CORPUS_PROCESSED.glob("*.json"):
         chunks = json.loads(jf.read_text())
-        if chunks and chunks[0].get("scripture") == scripture:
+        if not chunks:
+            continue
+
+        kept = [c for c in chunks if c.get("scripture") != scripture]
+        removed_here = len(chunks) - len(kept)
+        if removed_here == 0:
+            continue
+
+        removed_chunk_count += removed_here
+        if kept:
+            jf.write_text(json.dumps(kept, ensure_ascii=False, indent=2))
+            rewritten_files.append((jf.name, removed_here, len(kept)))
+        else:
             jf.unlink()
             removed_files.append(jf.name)
 
     if removed_files:
         print(f"  Deleted JSON: {', '.join(removed_files)}")
-    else:
+    if rewritten_files:
+        for fname, removed_here, kept_count in rewritten_files:
+            print(f"  Updated JSON: {fname} (removed {removed_here}, kept {kept_count})")
+    if not removed_files and not rewritten_files:
         print(f"  No processed JSON found for '{scripture}'")
+    else:
+        print(f"  Removed {removed_chunk_count} chunk(s) from processed corpus")
 
     print(f"\n✅ Done. '{scripture}' removed.")
 
 
 def cmd_verify(args):
-    """Cross-check JSON chunks vs Qdrant points per scripture."""
+    """Cross-check JSON chunks vs Qdrant points per scripture.
+
+    Handles two real-world cases correctly:
+    - Multi-scripture JSON files (e.g. vivekananda_collected.json stores Raja/Karma/Jnana-Yoga)
+    - Same scripture name across multiple JSON files (e.g. two Brahma Sutras Shankara editions)
+
+    Both cases previously caused false mismatch reports. Now we aggregate by scripture
+    name across all JSON files before comparing to Qdrant.
+    """
     client = _get_client()
 
     print(f"\n{'='*60}")
     print(f"Index Verification")
     print(f"{'='*60}\n")
 
-    json_files = sorted(CORPUS_PROCESSED.glob("*.json"))
-    all_good = True
-
-    for jf in json_files:
+    # Aggregate JSON counts by scripture name across ALL files
+    json_counts: dict[str, int] = {}
+    for jf in sorted(CORPUS_PROCESSED.glob("*.json")):
         chunks = json.loads(jf.read_text())
-        if not chunks:
-            continue
-        scripture = chunks[0]["scripture"]
-        json_count = len(chunks)
+        for chunk in chunks:
+            scripture = chunk.get("scripture", "")
+            if scripture:
+                json_counts[scripture] = json_counts.get(scripture, 0) + 1
 
+    all_good = True
+    for scripture, json_count in sorted(json_counts.items()):
         qdrant_count = client.count(
             COLLECTION_NAME,
             count_filter=Filter(
@@ -220,6 +248,9 @@ def cmd_verify(args):
             print(f"  ❌ {scripture}: JSON={json_count}, Qdrant={qdrant_count} (delta={qdrant_count - json_count:+d})")
             all_good = False
 
+    total_json = sum(json_counts.values())
+    total_qdrant = client.count(COLLECTION_NAME).count
+    print(f"\n  Total JSON: {total_json:,} | Total Qdrant: {total_qdrant:,}")
     print(f"\n{'All in sync ✅' if all_good else 'Mismatches found — run reindex for affected scriptures ⚠'}")
 
 

@@ -2,19 +2,25 @@
 
 **Inner Vision Through Ancient Wisdom**
 
-An AI assistant for Indian philosophy — citation-grounded answers from the Bhagavad Gita, Upanishads, Dhammapada, Yoga Sutras, Mahabharata, and 40+ other classical texts.
+An AI assistant for Indian philosophy — citation-grounded answers drawn from the Upanishads, Bhagavad Gita, Dhammapada, Mahabharata, and 50+ classical texts across Hindu, Buddhist, Jain, and Bhakti traditions.
 
-> Free forever. No ads.
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](#running-tests)
+[![License](https://img.shields.io/badge/code-MIT-blue)](#license)
+[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://python.org)
+[![Next.js](https://img.shields.io/badge/Next.js-14+-black)](https://nextjs.org)
 
 ---
 
 ## What It Does
 
-- **Ask** any question about Indian philosophy and get answers grounded in actual scripture citations
-- **Read** classical texts in a clean, distraction-free reading interface  
-- **Explore** across traditions — Vedanta, Buddhism, Yoga, Jainism, Bhakti
-- **Compare** how different traditions answer the same question
-- **Bookmark and highlight** passages as you read
+| Feature | Description |
+|---|---|
+| 💬 **Ask** | Get scripture-grounded answers to any philosophical question, with numbered citations |
+| 📖 **Read** | Browse 50+ classical texts in a clean, distraction-free reading interface |
+| 🔖 **Highlight & Note** | Save passages and add personal notes as you read |
+| 🌐 **Multi-tradition** | Vedanta, Buddhism, Yoga, Jainism, Bhakti — all in one place |
+| 🧵 **Conversations** | Persistent chat history with follow-up question suggestions |
+| 🌟 **Wisdom Wall** | Community space for sharing insights from the texts |
 
 ---
 
@@ -22,29 +28,40 @@ An AI assistant for Indian philosophy — citation-grounded answers from the Bha
 
 | Layer | Technology |
 |---|---|
-| **RAG Pipeline** | bge-m3 embeddings, Qdrant vector DB (hybrid dense + sparse) |
-| **LLM** | Groq (Llama 3.1 8B / Llama 4 Scout 17B) |
-| **Backend** | FastAPI (Python) |
-| **Frontend** | Next.js 16, Tailwind CSS |
-| **Database** | Supabase (PostgreSQL + Auth) |
+| **RAG Pipeline** | bge-m3 (hybrid dense + sparse), bge-reranker-v2-m3 cross-encoder, Qdrant |
+| **LLM** | Groq — Llama 4 Scout 17B |
+| **Backend** | FastAPI (Python 3.11+) |
+| **Frontend** | Next.js 14, Tailwind CSS |
+| **Database** | Supabase (PostgreSQL + Auth + RLS) |
 | **Observability** | LangFuse |
-| **Hosting** | Hetzner VPS (~$6/month) + Vercel (free) |
+| **Hosting** | Hetzner VPS + Vercel |
 
 ---
 
 ## Corpus
 
-19,278 chunks from 43 classical texts including:
-- Bhagavad Gita (Arnold, 1885)
-- 10 Principal Upanishads (Müller)
-- Dhammapada, Digha Nikaya, Majjhima Nikaya, Samyutta Nikaya, Anguttara Nikaya (Sujato CC0)
-- Yoga Sutras of Patanjali (Johnston)
-- Ashtavakra Gita (Richards)
-- Vivekananda — Raja-Yoga, Karma-Yoga, Jnana-Yoga
-- Songs of Kabir (Tagore)
-- Mahabharata, Manu Smriti, Brahma Sutras, and more
+50+ classical texts across traditions — all public domain (pre-1928) or CC0:
 
-All sources are public domain (pre-1928) or CC0.
+**Hindu Philosophy**
+- All 13 principal Upanishads (Müller, SBE)
+- Bhagavad Gita (Arnold 1885 + Telang 1882)
+- Mahabharata + Ramayana (Ganguli / Griffith)
+- Rig Veda + Atharva Veda (Griffith)
+- Brahma Sutras with Shankara & Ramanuja commentaries
+- Yoga Sutras (Johnston), Ashtavakra Gita (Richards)
+- Samkhya Karika, Nyaya Sutras, Vaisheshika Sutras, Arthashastra, Manu Smriti
+
+**Buddhist Philosophy**
+- Four Pali Nikayas: Digha, Majjhima, Samyutta, Anguttara (Sujato CC0)
+- Khuddaka Nikaya: Dhammapada, Sutta Nipata, Udana, Itivuttaka, Theragatha, Therigatha
+- Milindapanha (Rhys Davids)
+
+**Jain & Bhakti**
+- Jain Sutras Parts 1 & 2 (Jacobi)
+- Songs of Kabir (Tagore), Psalms of Maratha Saints, Thirukkural
+- Vivekananda — Raja-Yoga, Karma-Yoga, Jnana-Yoga
+
+Full source attribution, license verification, and download provenance in [`DATA-SOURCES.md`](DATA-SOURCES.md).
 
 ---
 
@@ -53,8 +70,8 @@ All sources are public domain (pre-1928) or CC0.
 ### Prerequisites
 - Python 3.11+
 - Node.js 18+
-- [Qdrant](https://qdrant.tech/) running locally or on a server
-- [Groq API key](https://console.groq.com) (free tier)
+- [Qdrant](https://qdrant.tech/) running locally
+- [Groq API key](https://console.groq.com) (free tier available)
 - [Supabase](https://supabase.com) project (free tier)
 
 ### Setup
@@ -71,12 +88,9 @@ pip install -r requirements.txt
 
 # Copy and fill in your keys
 cp .env.example .env
-# Edit .env with your Groq, Supabase, HuggingFace keys
 
 # Frontend
-cd frontend
-npm install
-cd ..
+cd frontend && npm install && cd ..
 
 # Start everything
 ./start.sh
@@ -85,31 +99,41 @@ cd ..
 ### Corpus Setup (first time)
 
 ```bash
-# Download and process texts
+# Process all texts into chunks
 python -m ingestion.process_all
 
-# Embed into Qdrant (takes 30-60 min, bge-m3 on CPU)
+# Embed into Qdrant  (~30-60 min on CPU)
 python -m ingestion.embed_and_load --mode prod
 
-# Verify
+# Verify and benchmark
 python -m ingestion.admin verify
-python -m eval.run_eval  # should pass >90%
+python -m eval.run_eval          # target: ≥90%
+```
+
+### Adding a new text
+
+```bash
+# Add a single new scripture incrementally (no full re-embed needed)
+python -m ingestion.admin add corpus/raw/my_text.txt \
+  --scripture "Text Name" \
+  --tradition hindu_vedanta \
+  --translator "Translator" \
+  --year 1900
 ```
 
 ---
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in:
+Copy `.env.example` to `.env`:
 
 | Variable | Description |
 |---|---|
-| `GROQ_API_KEY` | Groq API key (free tier, 14,400 queries/day) |
-| `QDRANT_URL` | Qdrant server URL (default: http://localhost:6333) |
-| `EMBED_MODEL` | Embedding model (default: BAAI/bge-m3) |
-| `SUPABASE_URL` | Your Supabase project URL |
+| `GROQ_API_KEY` | Groq API key |
+| `QDRANT_URL` | Qdrant server URL (default: `http://localhost:6333`) |
+| `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key (backend only) |
-| `HF_TOKEN` | HuggingFace token (optional, for model downloads) |
+| `EMBED_MODEL` | Embedding model (default: `BAAI/bge-m3`) |
 | `LANGFUSE_PUBLIC_KEY` | LangFuse observability (optional) |
 | `LANGFUSE_SECRET_KEY` | LangFuse observability (optional) |
 
@@ -119,24 +143,24 @@ Copy `.env.example` to `.env` and fill in:
 
 ```
 antardarshan/
-├── backend/          # FastAPI backend
-│   ├── app.py        # API endpoints
-│   ├── rag_query.py  # RAG pipeline
-│   ├── llm.py        # LLM generation + streaming
-│   └── corpus_index.py  # In-memory corpus index
-├── frontend/         # Next.js frontend
+├── backend/              # FastAPI API server
+│   ├── app.py            # API endpoints
+│   ├── rag_query.py      # Hybrid retrieval + reranking pipeline
+│   ├── llm.py            # LLM generation + streaming
+│   └── corpus_index.py   # In-memory scripture index
+├── frontend/             # Next.js application
 │   └── src/
-│       ├── app/      # Pages (ask, library, read, profile)
-│       └── components/  # Shared components
-├── ingestion/        # Corpus pipeline
-│   ├── parsers/      # Per-source text parsers
-│   ├── embed_and_load.py  # Qdrant embedding
-│   └── admin.py      # Incremental indexing CLI
-├── tests/            # 207 tests
-├── eval/             # Retrieval quality benchmarks
-├── supabase/
-│   └── migrations/   # Supabase schema migrations
-└── sources/          # Approved sources config
+│       ├── app/          # Pages: ask, library, read, profile, wisdom
+│       └── components/   # Header, sidebar, ask core, highlights
+├── ingestion/            # Corpus pipeline
+│   ├── parsers/          # Per-source text parsers (20+ parsers)
+│   ├── process_all.py    # Full corpus processing
+│   ├── embed_and_load.py # Qdrant embedding + upload
+│   └── admin.py          # Incremental indexing CLI
+├── tests/                # Test suite (370+ tests)
+├── eval/                 # Retrieval quality benchmarks (25 queries)
+├── supabase/migrations/  # Database schema
+└── DATA-SOURCES.md       # Full corpus attribution + legal status
 ```
 
 ---
@@ -144,20 +168,23 @@ antardarshan/
 ## Running Tests
 
 ```bash
-# Backend (207 tests)
-pytest tests/ -q
+# Full test suite
+pytest tests/ -v
 
 # Frontend
 cd frontend && npm run lint && npm run build
 
-# Retrieval quality
-python -m eval.run_eval  # target: ≥90%
+# Retrieval quality benchmark
+python -m eval.run_eval        # target: ≥90%
+
+# Index health check
+python -m ingestion.admin verify
 ```
 
 ---
 
 ## License
 
-Code: MIT  
-Corpus texts: Public domain (pre-1928) or CC0  
-See `DATA-SOURCES.md` for full attribution.
+Code: **MIT**
+
+Corpus texts: Public domain (pre-1928 US) or CC0. See [`DATA-SOURCES.md`](DATA-SOURCES.md) for full per-source attribution, license proof, and removal paths.

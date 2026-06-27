@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, BookOpen } from "lucide-react";
 import { getScriptureDetail, type Scripture, type ChapterSummary } from "@/lib/api";
+import { createClient } from "@/utils/supabase/client";
 
 export default function ChapterListPage() {
   const params = useParams();
@@ -14,6 +15,7 @@ export default function ChapterListPage() {
   const [chapters, setChapters] = useState<ChapterSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSignedIn, setIsSignedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
     getScriptureDetail(slug)
@@ -23,6 +25,11 @@ export default function ChapterListPage() {
       })
       .catch(() => setError("Could not load scripture. Tap to retry."))
       .finally(() => setLoading(false));
+
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsSignedIn(!!user);
+    });
   }, [slug]);
 
   if (loading) {
@@ -72,12 +79,14 @@ export default function ChapterListPage() {
         </p>
       </div>
 
-      {/* Progress bar placeholder */}
+      {/* Progress bar */}
       <div className="mb-6">
         <div className="h-1.5 w-full rounded-full bg-surface border border-border overflow-hidden">
           <div className="h-full rounded-full bg-accent/40" style={{ width: "0%" }} />
         </div>
-        <p className="text-xs text-muted mt-1">Sign in to track reading progress</p>
+        {isSignedIn === false && (
+          <p className="text-xs text-muted mt-1">Sign in to track reading progress</p>
+        )}
       </div>
 
       {/* Chapter list */}
