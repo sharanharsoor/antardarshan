@@ -802,33 +802,45 @@ class BookFeedbackRequest(BaseModel):
             raise ValueError("rating must be 1 or -1")
 
 
+def _scripture_to_slug(name: str) -> str:
+    """Convert scripture display name to URL slug (mirrors corpus_index._make_slug)."""
+    import re as _re
+    return _re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
 @app.post("/api/feedback/book")
 @limiter.limit("60/hour")
 async def submit_book_feedback(request: Request, req: BookFeedbackRequest):
-    """Rate a scripture thumbs up or down. Requires auth. Upserts — re-rating overwrites."""
+    """Rate a scripture thumbs up or down. Requires auth.
+    Uses existing feedback_books table (20260621_remaining_tables.sql).
+    Returns saved=True on success so frontend can revert on False."""
     from backend.supabase_client import verify_jwt
 
     user_id = await asyncio.to_thread(verify_jwt, request.headers.get("Authorization"))
     if not user_id:
         raise HTTPException(status_code=401, detail="Sign in to rate books")
 
+    saved = False
     try:
         from backend.supabase_client import get_supabase
         sb = get_supabase()
-        sb.table("book_feedback").upsert(
-            {"user_id": user_id, "scripture": req.scripture, "rating": req.rating},
-            on_conflict="user_id,scripture",
+        slug = _scripture_to_slug(req.scripture)
+        sb.table("feedback_books").upsert(
+            {"user_id": user_id, "slug": slug, "scripture": req.scripture, "rating": req.rating},
+            on_conflict="user_id,slug",
         ).execute()
+        saved = True
     except Exception as e:
-        print(f"  Book feedback error (non-critical): {e}")
+        print(f"  Book feedback error: {e}")
 
-    return {"ok": True, "scripture": req.scripture, "rating": req.rating}
+    return {"ok": True, "saved": saved, "scripture": req.scripture, "rating": req.rating}
 
 
 @app.get("/api/feedback/book")
 @limiter.limit("60/minute")
 async def get_book_feedback(request: Request):
-    """Return the authenticated user's book ratings as {scripture: rating}."""
+    """Return the authenticated user's book ratings as {scripture: rating}.
+    Uses existing feedback_books table."""
     from backend.supabase_client import verify_jwt
 
     user_id = await asyncio.to_thread(verify_jwt, request.headers.get("Authorization"))
@@ -838,7 +850,7 @@ async def get_book_feedback(request: Request):
     try:
         from backend.supabase_client import get_supabase
         sb = get_supabase()
-        rows = sb.table("book_feedback").select("scripture,rating").eq("user_id", user_id).execute()
+        rows = sb.table("feedback_books").select("scripture,rating").eq("user_id", user_id).execute()
         ratings = {r["scripture"]: r["rating"] for r in (rows.data or [])}
     except Exception:
         ratings = {}

@@ -72,15 +72,26 @@ function LibraryPageContent() {
     if (!accessToken || ratings[scripture] === rating) return; // no-op if same
     const prev = ratings[scripture];
     setRatings((r) => ({ ...r, [scripture]: rating })); // optimistic
-    submitBookFeedback(scripture, rating, accessToken).catch(() => {
-      // Revert on failure
-      setRatings((r) => {
-        const updated = { ...r };
-        if (prev !== undefined) updated[scripture] = prev;
-        else delete updated[scripture];
-        return updated;
+    submitBookFeedback(scripture, rating, accessToken)
+      .then((result) => {
+        if (!result.saved) {
+          // DB write failed — revert
+          setRatings((r) => {
+            const updated = { ...r };
+            if (prev !== undefined) updated[scripture] = prev;
+            else delete updated[scripture];
+            return updated;
+          });
+        }
+      })
+      .catch(() => {
+        setRatings((r) => {
+          const updated = { ...r };
+          if (prev !== undefined) updated[scripture] = prev;
+          else delete updated[scripture];
+          return updated;
+        });
       });
-    });
   }, [accessToken, ratings]);
 
   const traditions = [...new Set(scriptures.map((s) => s.tradition))];
@@ -148,52 +159,66 @@ function LibraryPageContent() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {texts.map((scripture) => (
+              // Stretched-link pattern: Link covers the whole card for keyboard/a11y,
+              // thumb buttons sit above it with z-10 and stopPropagation.
               <div
                 key={scripture.slug}
-                onClick={() => router.push(`/read/${scripture.slug}`)}
-                className="group rounded-xl border border-border p-5 hover:bg-surface hover:border-accent/30 transition-all cursor-pointer"
+                className="relative group rounded-xl border border-border hover:bg-surface hover:border-accent/30 transition-all"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-serif font-semibold text-base group-hover:text-accent transition-colors">
-                    {scripture.scripture}
-                  </h3>
-                  <BookOpen className="h-4 w-4 text-muted group-hover:text-accent transition-colors" />
-                </div>
-
-                <div className="space-y-1 text-sm text-muted">
-                  <p>{scripture.total_chapters} chapters &middot; {scripture.total_verses} verses</p>
-                  <p>{scripture.translator}, {scripture.year}</p>
-                </div>
-
-                {/* Thumbs — only for signed-in users */}
-                {accessToken && (
-                  <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border/50">
-                    <button
-                      onClick={(e) => handleRate(e, scripture.scripture, 1)}
-                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
-                        ratings[scripture.scripture] === 1
-                          ? "bg-green-900/30 text-green-400"
-                          : "text-muted hover:text-green-400 hover:bg-surface"
-                      }`}
-                      title="Helpful"
-                      aria-label="Thumbs up"
-                    >
-                      <ThumbsUp className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={(e) => handleRate(e, scripture.scripture, -1)}
-                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
-                        ratings[scripture.scripture] === -1
-                          ? "bg-red-900/30 text-red-400"
-                          : "text-muted hover:text-red-400 hover:bg-surface"
-                      }`}
-                      title="Not helpful"
-                      aria-label="Thumbs down"
-                    >
-                      <ThumbsDown className="h-3 w-3" />
-                    </button>
+                <a
+                  href={`/read/${scripture.slug}`}
+                  className="absolute inset-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1"
+                  aria-label={`Read ${scripture.scripture}`}
+                  onClick={(e) => {
+                    // Allow Cmd/Ctrl+click and middle-click to open in new tab
+                    if (e.metaKey || e.ctrlKey || e.button === 1) return;
+                    e.preventDefault();
+                    router.push(`/read/${scripture.slug}`);
+                  }}
+                />
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-serif font-semibold text-base group-hover:text-accent transition-colors">
+                      {scripture.scripture}
+                    </h3>
+                    <BookOpen className="h-4 w-4 text-muted group-hover:text-accent transition-colors" />
                   </div>
-                )}
+
+                  <div className="space-y-1 text-sm text-muted">
+                    <p>{scripture.total_chapters} chapters &middot; {scripture.total_verses} verses</p>
+                    <p>{scripture.translator}, {scripture.year}</p>
+                  </div>
+
+                  {/* Thumbs — pointer-events-auto so they capture clicks above the stretched link */}
+                  {accessToken && (
+                    <div className="relative z-20 flex items-center gap-2 mt-3 pt-2 border-t border-border/50">
+                      <button
+                        onClick={(e) => handleRate(e, scripture.scripture, 1)}
+                        className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                          ratings[scripture.scripture] === 1
+                            ? "bg-green-900/30 text-green-400"
+                            : "text-muted hover:text-green-400 hover:bg-surface"
+                        }`}
+                        title="Helpful"
+                        aria-label="Thumbs up"
+                      >
+                        <ThumbsUp className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={(e) => handleRate(e, scripture.scripture, -1)}
+                        className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                          ratings[scripture.scripture] === -1
+                            ? "bg-red-900/30 text-red-400"
+                            : "text-muted hover:text-red-400 hover:bg-surface"
+                        }`}
+                        title="Not helpful"
+                        aria-label="Thumbs down"
+                      >
+                        <ThumbsDown className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>

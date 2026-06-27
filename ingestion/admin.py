@@ -277,7 +277,7 @@ def cmd_book_feedback(args):
     try:
         from supabase import create_client
         sb = create_client(url, key)
-        rows = sb.table("book_feedback").select("scripture,rating").execute()
+        rows = sb.table("feedback_books").select("scripture,rating").execute()
     except Exception as e:
         print(f"ERROR: Could not fetch book feedback: {e}")
         return

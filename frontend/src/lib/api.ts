@@ -283,12 +283,13 @@ export async function deleteSession(sessionId: string): Promise<void> {
 
 // ── Book feedback ─────────────────────────────────────────────────────────────
 
-/** Submit or update a thumbs up/down rating for a scripture. Requires auth. */
+/** Submit or update a thumbs up/down rating for a scripture. Requires auth.
+ *  Returns { saved: true } when DB write succeeded, { saved: false } on DB error. */
 export async function submitBookFeedback(
   scripture: string,
   rating: 1 | -1,
   accessToken: string,
-): Promise<void> {
+): Promise<{ saved: boolean }> {
   const res = await fetch(`${API_BASE}/api/feedback/book`, {
     method: "POST",
     headers: {
@@ -298,6 +299,8 @@ export async function submitBookFeedback(
     body: JSON.stringify({ scripture, rating }),
   });
   if (!res.ok) throw new Error(`Book feedback failed: ${res.status}`);
+  const data = await res.json();
+  return { saved: data.saved ?? false };
 }
 
 /** Fetch the current user's ratings: { [scripture]: 1 | -1 } */

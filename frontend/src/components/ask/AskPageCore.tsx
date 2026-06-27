@@ -251,10 +251,11 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
 
   // When backend is down: poll every 15s + show countdown; stop when recovered
   useEffect(() => {
-    if (!backendDown) { setRetryCountdown(0); return; }
+    if (!backendDown) return;
 
     const RETRY_SECS = 15;
-    setRetryCountdown(RETRY_SECS);
+    // Defer to avoid react-hooks/set-state-in-effect lint error
+    const t = setTimeout(() => setRetryCountdown(RETRY_SECS), 0);
 
     const healthInterval = setInterval(() => {
       fetch(`${API_BASE}/healthz`, { method: "GET", cache: "no-store" })
@@ -268,6 +269,7 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
     }, 1000);
 
     return () => {
+      clearTimeout(t);
       clearInterval(healthInterval);
       clearInterval(countdownInterval);
     };

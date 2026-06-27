@@ -69,4 +69,5 @@ Thumbs.db
 .pytest_cache/
 htmlcov/
 .coverage
+tests/load_report.html
 admin/
