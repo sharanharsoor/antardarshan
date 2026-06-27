@@ -956,7 +956,13 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
                     pass
                 return
 
-            await asyncio.wait_for(asyncio.wrap_future(gen_future), timeout=5.0)
+            try:
+                # Wait for producer thread to finish. If it's still stuck in
+                # next(_gen) after the timeout path set stop_event, we give it
+                # 5s then abandon it — thread will exit on its own eventually.
+                await asyncio.wait_for(asyncio.wrap_future(gen_future), timeout=5.0)
+            except (asyncio.TimeoutError, Exception):
+                pass  # thread is still running; stop_event ensures it exits cleanly
 
         if result_holder and result_holder[0]:
             trace_id, model_used, tokens_used = result_holder[0]
