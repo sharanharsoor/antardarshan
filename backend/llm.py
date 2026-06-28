@@ -1,19 +1,55 @@
 """
 LLM generation layer for AntarDarshan.
 
-Wraps Groq API with:
-- Mode-specific system prompts (citation, well-being, exploration, comparison)
-- Citation-required output format
-- Tiered model routing (8B for simple, 17B for deep)
+Supports two providers via environment variables:
+  TOGETHER_API_KEY  — use Together AI (gpt-oss-20b by default, no hard rate limits)
+  GROQ_API_KEY      — use Groq (Llama 4 Scout 17B, very fast, 6k TPM cap)
+
+Together AI takes priority if both keys are present.
+Set LLM_MODEL to override the default model for either provider.
 """
 
 import os
 import time
 from dotenv import load_dotenv
-from groq import Groq
 from langfuse import Langfuse
 
 load_dotenv()
+
+# ── Provider selection ─────────────────────────────────────────────────────────
+TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
+GROQ_API_KEY     = os.getenv("GROQ_API_KEY", "")
+
+_USE_TOGETHER = bool(TOGETHER_API_KEY)
+
+if _USE_TOGETHER:
+    from openai import OpenAI as _OpenAI
+    MODEL_SIMPLE = os.getenv("LLM_MODEL", "meta-llama/Llama-3.3-70B-Instruct-Turbo")
+    MODEL_DEEP   = os.getenv("LLM_MODEL", "meta-llama/Llama-3.3-70B-Instruct-Turbo")
+    _PROVIDER    = "together"
+else:
+    from groq import Groq as _Groq
+    MODEL_SIMPLE = os.getenv("LLM_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+    MODEL_DEEP   = os.getenv("LLM_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+    _PROVIDER    = "groq"
+
+_client = None
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        if _USE_TOGETHER:
+            _client = _OpenAI(
+                api_key=TOGETHER_API_KEY,
+                base_url="https://api.together.xyz/v1",
+                timeout=90.0,
+            )
+        elif GROQ_API_KEY:
+            from groq import Groq
+            _client = Groq(api_key=GROQ_API_KEY, timeout=60.0)
+    return _client
+
 
 # LangFuse observability — traces every LLM call
 _langfuse = None
@@ -24,24 +60,10 @@ def _get_langfuse():
     if _langfuse is None:
         pk = os.getenv("LANGFUSE_PUBLIC_KEY", "")
         sk = os.getenv("LANGFUSE_SECRET_KEY", "")
-        # Support both LANGFUSE_BASE_URL (newer SDK) and LANGFUSE_HOST (legacy)
         host = os.getenv("LANGFUSE_BASE_URL") or os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
         if pk and sk:
             _langfuse = Langfuse(public_key=pk, secret_key=sk, host=host)
     return _langfuse
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-MODEL_SIMPLE = "meta-llama/llama-4-scout-17b-16e-instruct"  # 512k context — no truncation
-MODEL_DEEP   = "meta-llama/llama-4-scout-17b-16e-instruct"  # same for now; upgrade to 70B if needed
-
-_groq_client = None
-
-
-def _get_groq_client():
-    global _groq_client
-    if _groq_client is None and GROQ_API_KEY:
-        _groq_client = Groq(api_key=GROQ_API_KEY, timeout=60.0)
-    return _groq_client
 
 _CITATION_RULE = """
 CONVERSATION PRIORITY: If the user's question refers to something from our conversation (their name, something they said, a previous answer), answer from conversation history — do not use retrieved sources for personal/contextual questions.
@@ -154,7 +176,7 @@ def generate_response(
     log_content: bool | None = None,
 ) -> tuple[str, str | None, str | None, int]:
     """Generate a cited response using Groq LLM. Always returns (answer, trace_id, model, tokens)."""
-    client = _get_groq_client()
+    client = _get_client()
     if not client:
         return _fallback_response(query, hits)  # 4-tuple
     # log_content from request takes priority over env var
@@ -282,7 +304,7 @@ Answer using ONLY the sources listed above. If a source does not support a claim
 
         if generation:
             generation.end(output={"error": type(e).__name__}, level="ERROR")
-        print(f"  Groq API error: {e}")
+        print(f"  LLM API error: {e}")
         return _fallback_response(query, hits)  # already returns 4-tuple
 
 
@@ -308,7 +330,7 @@ def generate_response_stream(
         except StopIteration as e:
             trace_id, model, tokens = e.value
     """
-    client = _get_groq_client()
+    client = _get_client()
     if not client:
         # Fallback: yield the full fallback response as one chunk
         text, _, _, _ = _fallback_response(query, hits)
@@ -377,7 +399,7 @@ def generate_response_stream(
         except Exception as e:
             if "413" in str(e) or "too large" in str(e).lower():
                 continue  # try next stage
-            print(f"  Groq streaming error: {e}")
+            print(f"  LLM streaming error: {e}")
             text, _, _, _ = _fallback_response(query, hits)
             yield text
             return None, None, 0
@@ -417,7 +439,7 @@ def generate_response_stream(
         return trace_id, model, total_tokens
 
     except Exception as e:
-        print(f"  Groq streaming error: {e}")
+        print(f"  LLM streaming error: {e}")
         text, _, _, _ = _fallback_response(query, hits)
         yield text
         return None, None, 0

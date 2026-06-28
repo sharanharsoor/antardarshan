@@ -780,7 +780,14 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
                       {msg.mode && (
                         <span className="text-xs text-muted/60 ml-2">
                           {msg.mode}
-                          {msg.model ? ` · ${msg.model.includes("8b") ? "Llama 8B" : "Llama 17B"}` : null}
+                          {msg.model ? ` · ${
+                            msg.model.includes("70b") || msg.model.includes("70B") ? "Llama 70B" :
+                            msg.model.includes("17b") || msg.model.includes("17B") ? "Llama 17B" :
+                            msg.model.includes("8b")  || msg.model.includes("8B")  ? "Llama 8B"  :
+                            msg.model.includes("gpt-oss-20") ? "GPT-OSS 20B" :
+                            msg.model.includes("gpt-oss-120") ? "GPT-OSS 120B" :
+                            msg.model.split("/").pop()?.split("-Instruct")[0] ?? "LLM"
+                          }` : null}
                           {msg.tokensUsed ? ` · ~${msg.tokensUsed.toLocaleString()} tokens` : null}
                         </span>
                       )}

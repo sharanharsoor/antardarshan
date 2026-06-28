@@ -43,6 +43,7 @@ chunking-strategy>=0.4.2
 
 # Server
 gunicorn>=22.0.0
+openai>=1.0.0
 
 # Load testing — install manually for dev/CI only, not needed in production:
 #   pip install locust>=2.32.0
