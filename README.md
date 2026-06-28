@@ -159,7 +159,7 @@ antardarshan/
 │   ├── process_all.py    # Full corpus processing
 │   ├── embed_and_load.py # Qdrant embedding + upload
 │   └── admin.py          # Incremental indexing CLI
-├── tests/                # Test suite (370+ tests)
+├── tests/                # Test suite (600 tests — 496 backend + 104 frontend)
 ├── eval/                 # Retrieval quality benchmarks (25 queries)
 ├── supabase/migrations/  # Database schema
 └── CORPUS.md             # Full corpus attribution + legal status
@@ -174,7 +174,7 @@ antardarshan/
 pytest tests/ -v
 
 # Frontend
-cd frontend && npm run lint && npm run build
+cd frontend && npm run lint && npm run test
 
 # Retrieval quality benchmark
 python -m eval.run_eval        # target: ≥90%
