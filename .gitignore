@@ -75,9 +75,7 @@ PRODUCTION-CHECKLIST.md
 V1-ROADMAP.md
 COMBINED-PLAN.md
 DATA-SOURCES.md
-claude-opus-4-plan.md
-indian_philosophy_ai_mvp_Codex-5.3.plan.md
-plan-sonnet-4-6.md
+*.plan.md
 
 # Cursor AI editor config files
 frontend/AGENTS.md
