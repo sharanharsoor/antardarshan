@@ -412,9 +412,13 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
       const detail = (err as { detail?: { error?: string; message?: string } })?.detail;
       let errorContent = "Could not reach the server. Please try again.";
       if (status === 429) {
-        errorContent = detail?.error === "global_limit_reached"
-          ? "The service has reached its daily query limit. Please come back tomorrow."
-          : "You've used today's 50 personal queries. Come back tomorrow — the limit resets at midnight UTC.";
+        if (detail?.error === "global_limit_reached") {
+          errorContent = "The service has reached its daily query limit. Please come back tomorrow.";
+        } else if (detail?.error === "anon_limit_reached") {
+          errorContent = `Today's limit of ${detail?.limit ?? 250} free questions has been reached. Sign in to continue — it's free and takes 10 seconds.`;
+        } else {
+          errorContent = "You've used today's 50 personal queries. Come back tomorrow — the limit resets at midnight UTC.";
+        }
       } else if (status === 408) {
         errorContent = "The response took too long. The server may be busy — please try again in a moment.";
       } else if (status === 500) {
@@ -422,8 +426,6 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
       } else if (status === 503) {
         setBackendDown(true);
         errorContent = "The server is temporarily unavailable. It will recover automatically.";
-      } else if (status === 429 && detail?.error === "anon_limit_reached") {
-        errorContent = `Today's limit of ${detail?.limit ?? 250} free questions has been reached. Sign in to continue — it's free and takes 10 seconds.`;
       }
       // Replace the stale placeholder (if it exists) rather than appending a second message
       setMessages((prev) => {

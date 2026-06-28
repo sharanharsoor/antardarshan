@@ -203,19 +203,33 @@ def _init_db():
 
 
 def _get_and_increment_anon_count(today: str) -> int:
-    """Atomically increment today's anonymous query count. Returns new count."""
-    conn = sqlite3.connect(str(DB_PATH), timeout=10)
-    conn.execute(
-        "INSERT INTO anon_daily_counts (date, count) VALUES (?, 1) "
-        "ON CONFLICT(date) DO UPDATE SET count = count + 1",
-        (today,)
-    )
-    conn.commit()
-    row = conn.execute(
-        "SELECT count FROM anon_daily_counts WHERE date = ?", (today,)
-    ).fetchone()
-    conn.close()
-    return row[0] if row else 1
+    """Atomically increment today's anonymous query count. Returns new count.
+
+    Fail-open: on SQLite lock contention (OperationalError), returns 0 after
+    retries so the request proceeds rather than crashing with a 500.
+    """
+    import time as _time
+    for attempt in range(3):
+        try:
+            conn = sqlite3.connect(str(DB_PATH), timeout=10)
+            conn.execute(
+                "INSERT INTO anon_daily_counts (date, count) VALUES (?, 1) "
+                "ON CONFLICT(date) DO UPDATE SET count = count + 1",
+                (today,)
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT count FROM anon_daily_counts WHERE date = ?", (today,)
+            ).fetchone()
+            conn.close()
+            return row[0] if row else 1
+        except sqlite3.OperationalError:
+            if attempt == 2:
+                return 0  # fail-open: let the request through, don't crash
+            _time.sleep(0.05 * (attempt + 1))
+        except Exception:
+            return 0  # any other DB error — fail-open
+    return 0
 
 
 def _get_anon_count(today: str) -> int:
