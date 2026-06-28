@@ -565,7 +565,7 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
       {/* Main chat area */}
       <div className="flex flex-1 flex-col min-w-0">
         {/* Top bar — sticky so it stays visible while scrolling the messages */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 backdrop-blur px-4 py-2 gap-2">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 backdrop-blur px-4 py-2.5 gap-2">
           <div className="flex items-center gap-2">
             {user && (
               <button

@@ -76,6 +76,8 @@ V1-ROADMAP.md
 COMBINED-PLAN.md
 DATA-SOURCES.md
 *.plan.md
+*-plan.md
+plan-*.md
 
 # Cursor AI editor config files
 frontend/AGENTS.md
