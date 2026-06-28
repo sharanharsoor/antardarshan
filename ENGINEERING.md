@@ -6,7 +6,7 @@
 
 [![Tests](https://img.shields.io/badge/tests-496%20passing-brightgreen?style=flat-square)](#testing)
 [![Eval](https://img.shields.io/badge/retrieval%20eval-25%2F25-brightgreen?style=flat-square)](#evaluation)
-[![Corpus](https://img.shields.io/badge/corpus-20%2C369%20chunks%20%7C%2054%20texts-blue?style=flat-square)](#the-corpus)
+[![Corpus](https://img.shields.io/badge/corpus-20%2C369%20chunks%20%7C%2054%20texts-blue?style=flat-square)](#the-corpus--the-real-engineering-problem)
 [![Stack](https://img.shields.io/badge/stack-FastAPI%20%7C%20Next.js%20%7C%20Qdrant%20%7C%20Groq-informational?style=flat-square)](#tech-stack)
 [![License](https://img.shields.io/badge/code-MIT-green?style=flat-square)](LICENSE)
 
@@ -388,6 +388,6 @@ Key coverage: streaming timeout and error events, `_TrackedSemaphore` concurrenc
 
 *If you're building something in this space — RAG for specialized domains, hybrid retrieval, async streaming architectures — I'd like to talk.*
 
-**[Connect on LinkedIn](https://linkedin.com/in/sharsoor) · [GitHub](https://github.com/sharanharsoor)**
+**[Connect on LinkedIn](https://www.linkedin.com/in/sharan-harsoor/) · [GitHub](https://github.com/sharanharsoor)**
 
 </div>
