@@ -420,9 +420,10 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
       } else if (status === 500) {
         errorContent = "Something went wrong while generating the response. Please try again.";
       } else if (status === 503) {
-        // Backend degraded — trigger the health banner so user sees status
         setBackendDown(true);
         errorContent = "The server is temporarily unavailable. It will recover automatically.";
+      } else if (status === 429 && detail?.error === "anon_limit_reached") {
+        errorContent = `Today's limit of ${detail?.limit ?? 250} free questions has been reached. Sign in to continue — it's free and takes 10 seconds.`;
       }
       // Replace the stale placeholder (if it exists) rather than appending a second message
       setMessages((prev) => {

@@ -170,6 +170,9 @@ class FeedbackRequest(BaseModel):
 
 # --- DB ---
 
+ANON_DAILY_LIMIT = 250  # max anonymous queries per day (global, not per-IP)
+
+
 def _init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH), timeout=10)
@@ -187,8 +190,45 @@ def _init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # Separate counter for anonymous (unauthenticated) queries — simpler than
+    # adding a column to query_logs which would require migrating existing rows.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS anon_daily_counts (
+            date TEXT PRIMARY KEY,
+            count INTEGER DEFAULT 0
+        )
+    """)
     conn.commit()
     conn.close()
+
+
+def _get_and_increment_anon_count(today: str) -> int:
+    """Atomically increment today's anonymous query count. Returns new count."""
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
+    conn.execute(
+        "INSERT INTO anon_daily_counts (date, count) VALUES (?, 1) "
+        "ON CONFLICT(date) DO UPDATE SET count = count + 1",
+        (today,)
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT count FROM anon_daily_counts WHERE date = ?", (today,)
+    ).fetchone()
+    conn.close()
+    return row[0] if row else 1
+
+
+def _get_anon_count(today: str) -> int:
+    """Read today's anonymous query count without incrementing."""
+    try:
+        conn = sqlite3.connect(str(DB_PATH), timeout=10)
+        row = conn.execute(
+            "SELECT count FROM anon_daily_counts WHERE date = ?", (today,)
+        ).fetchone()
+        conn.close()
+        return row[0] if row else 0
+    except Exception:
+        return 0
 
 
 def _log_query(mode: str, citations: list, latency_ms: int, tradition: str = None):
@@ -395,6 +435,26 @@ async def query_endpoint(request: Request, req: QueryRequest):
                     "used": used,
                     "limit": 50,
                     "message": "You've used today's 50 queries. Resets at midnight UTC.",
+                },
+            )
+    else:
+        # 3. Anonymous global daily cap — prevents anonymous abuse without tracking IPs.
+        # Authenticated users are exempt (they have their own per-user quota).
+        def _check_and_increment_anon():
+            from datetime import datetime, timezone as _tz3
+            today = datetime.now(_tz3.utc).strftime("%Y-%m-%d")
+            return _get_and_increment_anon_count(today)
+        anon_used = await asyncio.to_thread(_check_and_increment_anon)
+        if anon_used > ANON_DAILY_LIMIT:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "anon_limit_reached",
+                    "limit": ANON_DAILY_LIMIT,
+                    "message": (
+                        f"Today's limit of {ANON_DAILY_LIMIT} free questions has been reached. "
+                        "Sign in to continue — it's free."
+                    ),
                 },
             )
 
@@ -958,6 +1018,22 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
             return JSONResponse(status_code=429, content={"detail": {
                 "error": "daily_limit_reached", "limit": 50,
                 "message": "You've used today's 50 queries. Resets at midnight UTC.",
+            }})
+    else:
+        # Anonymous global daily cap (same as /api/query)
+        def _stream_check_anon():
+            from datetime import datetime, timezone as _tz4
+            today = datetime.now(_tz4.utc).strftime("%Y-%m-%d")
+            return _get_and_increment_anon_count(today)
+        anon_used_stream = await asyncio.to_thread(_stream_check_anon)
+        if anon_used_stream > ANON_DAILY_LIMIT:
+            return JSONResponse(status_code=429, content={"detail": {
+                "error": "anon_limit_reached",
+                "limit": ANON_DAILY_LIMIT,
+                "message": (
+                    f"Today's limit of {ANON_DAILY_LIMIT} free questions has been reached. "
+                    "Sign in to continue — it's free."
+                ),
             }})
 
     # ── RAG retrieval (blocking, before stream starts) ────────────────────────
