@@ -2,12 +2,12 @@
 
 <div align="center">
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&pause=1000&color=C8A97E&center=true&vCenter=true&width=600&lines=Citation-grounded+AI+for+Indian+philosophy;20%2C369+chunks+from+54+classical+texts;Hybrid+RAG+%2B+Llama+4+Scout+17B+%2B+Qdrant;Built+with+FastAPI%2C+Next.js%2C+BGE-M3)](https://github.com/sharanharsoor/antardarshan)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&pause=1000&color=C8A97E&center=true&vCenter=true&width=600&lines=Citation-grounded+AI+for+Indian+philosophy;20%2C369+chunks+from+54+classical+texts;Hybrid+RAG+%2B+Llama+3.3+70B+%2B+Qdrant;Built+with+FastAPI%2C+Next.js%2C+BGE-M3)](https://github.com/sharanharsoor/antardarshan)
 
 [![Tests](https://img.shields.io/badge/tests-496%20passing-brightgreen?style=flat-square)](#testing)
 [![Eval](https://img.shields.io/badge/retrieval%20eval-25%2F25-brightgreen?style=flat-square)](#evaluation)
 [![Corpus](https://img.shields.io/badge/corpus-20%2C369%20chunks%20%7C%2054%20texts-blue?style=flat-square)](#the-corpus--the-real-engineering-problem)
-[![Stack](https://img.shields.io/badge/stack-FastAPI%20%7C%20Next.js%20%7C%20Qdrant%20%7C%20Groq-informational?style=flat-square)](#tech-stack)
+[![Stack](https://img.shields.io/badge/stack-FastAPI%20%7C%20Next.js%20%7C%20Qdrant%20%7C%20Together%20AI-informational?style=flat-square)](#tech-stack)
 [![License](https://img.shields.io/badge/code-MIT-green?style=flat-square)](LICENSE)
 
 *A deep dive into building a RAG system where the corpus is the product*
@@ -18,11 +18,11 @@
 
 ## Why This Exists
 
-Most AI assistants know Indian philosophy the way someone knows a Wikipedia summary — plausible surface, no depth, no source. Ask about the Mandukya Upanishad's four states of consciousness, the Samyutta Nikaya's treatment of dependent origination, or where Shankara and Ramanuja actually disagree on the Brahma Sutras — you get confident-sounding text with no grounding.
+Most AI assistants know Indian philosophy the way someone knows a Wikipedia summary: plausible surface, no depth, no source. Ask about the Mandukya Upanishad's four states of consciousness, the Samyutta Nikaya's treatment of dependent origination, or where Shankara and Ramanuja actually disagree on the Brahma Sutras, and you get confident-sounding text with no grounding.
 
 The interesting engineering problem: **how do you build a retrieval system that can reason across 54 classical texts, spanning 2,500 years and six philosophical traditions, with every answer traceable to an actual passage?**
 
-This document is a walkthrough of the system — the decisions, the tradeoffs, the things that broke, and what I'd do differently.
+This document is a walkthrough of the system — decisions, tradeoffs, things that broke, and what I'd do differently.
 
 ---
 
@@ -30,10 +30,10 @@ This document is a walkthrough of the system — the decisions, the tradeoffs, t
 
 | Layer | Choice | Why |
 |---|---|---|
-| **Embedding** | BGE-M3 (1024d dense + sparse) | Single forward pass for hybrid vectors — no separate BM25 infrastructure |
+| **Embedding** | BGE-M3 (1024d dense + sparse) | Single forward pass for hybrid vectors, no separate BM25 infrastructure |
 | **Vector DB** | Qdrant (self-hosted) | Native hybrid search; Rust performance; $0 |
-| **Reranker** | bge-reranker-v2-m3 (cross-encoder) | Reads (query, passage) jointly — much more accurate than embedding similarity alone |
-| **LLM** | Llama 4 Scout 17B via Groq | ~5-10s to first token; handles multi-tradition synthesis; near-zero cost at current scale |
+| **Reranker** | bge-reranker-v2-m3 (cross-encoder) | Reads (query, passage) jointly, much more accurate than embedding similarity alone |
+| **LLM** | Llama 3.3 70B via Together AI (Groq fallback) | Configurable provider; ~3-8s to first token; handles multi-tradition synthesis |
 | **Backend** | FastAPI + asyncio | Full async with thread-pool offloading for blocking calls |
 | **Frontend** | Next.js 14 App Router | Server components + streaming SSE |
 | **Auth + DB** | Supabase (PostgreSQL + RLS) | Row-level security per user; free tier generous enough |
@@ -60,7 +60,7 @@ graph TB
         Search["Qdrant Hybrid Search<br/>(dense + sparse RRF)"]
         Rerank["Cross-Encoder Reranker<br/>top-20 → top-5"]
         Semaphore["_LLM_SEMAPHORE<br/>asyncio (15 slots/worker)"]
-        LLM["Groq — Llama 4 Scout 17B<br/>(thread + queue streaming)"]
+        LLM["LLM Provider<br/>Together AI · Groq<br/>(thread + queue streaming)"]
     end
 
     subgraph Storage["Storage"]
@@ -102,9 +102,9 @@ All texts are **public domain (pre-1928) or CC0**. Full source attribution and l
 
 ### The Chunking Problem
 
-Standard RAG tutorials chunk at 256-512 tokens. For dense philosophical prose, a 512-token chunk cuts arguments mid-thought. We discovered this the hard way — a Ramayana canto was being stored as a **single 15,432-word chunk** (silently truncated by BGE-M3's 8,192-token context window).
+Standard RAG tutorials chunk at 256-512 tokens. For dense philosophical prose, a 512-token chunk cuts arguments mid-thought. We discovered this the hard way: a Ramayana canto was being stored as a **single 15,432-word chunk** (silently truncated by BGE-M3's 8,192-token context window).
 
-The fix: **800-word hard cap** with sentence-boundary splitting:
+The fix is an **800-word hard cap** with sentence-boundary splitting:
 
 ```python
 def _split_large_chunk(chunk, max_words=800):
@@ -148,9 +148,9 @@ flowchart LR
 
 ### Why Hybrid (Dense + Sparse)?
 
-Pure dense retrieval fails on exact-term queries. Ask "what does the Katha Upanishad say about *Nachiketa*?" — dense retrieval finds semantically similar passages about death/immortality, but may miss verses where the name appears. BM25-style sparse retrieval catches the exact term.
+Pure dense retrieval fails on exact-term queries. Ask "what does the Katha Upanishad say about *Nachiketa*?" and dense retrieval finds semantically similar passages about death/immortality, but may miss verses where the name appears. BM25-style sparse retrieval catches the exact term.
 
-BGE-M3 was chosen specifically because it generates **both dense and sparse vectors in a single forward pass** — no separate BM25 index, no fusion infrastructure. One model, one pass, both signals.
+BGE-M3 was chosen specifically because it generates **both dense and sparse vectors in a single forward pass**: no separate BM25 index, no fusion infrastructure. One model, one pass, both signals.
 
 ```mermaid
 flowchart LR
@@ -160,7 +160,7 @@ flowchart LR
     Sparse["Sparse Matching\n(SPLADE-style)"]
     RRF["Reciprocal Rank Fusion\ntop-20 candidates"]
     Cross["Cross-Encoder Reranker\nbge-reranker-v2-m3\ntop-20 → top-5"]
-    LLM["Llama 4 Scout 17B"]
+    LLM["LLM Provider\n(Llama 3.3 70B)"]
 
     Q --> BGE --> Dense & Sparse --> RRF --> Cross --> LLM
 ```
@@ -182,9 +182,9 @@ Skipping RAG on conversational follow-ups saves 2-5 seconds per exchange and avo
 
 ## Async Architecture — The Hard Part
 
-The original implementation blocked the event loop on every slow call — embedding, reranking, Supabase auth checks, Groq HTTP calls. One 15-second Groq call would stall all other requests on that worker.
+The original implementation blocked the event loop on every slow call: embedding, reranking, Supabase auth checks, LLM API calls. One 15-second LLM call would stall all other requests on that worker.
 
-The refactor: **every blocking call runs in a thread pool**:
+The refactor runs **every blocking call in a thread pool**:
 
 ```python
 # Before: blocks event loop
@@ -198,7 +198,7 @@ hits     = await asyncio.to_thread(search, query, top_k=5)
 answer   = await asyncio.to_thread(generate_response, ...)
 ```
 
-The **LLM semaphore** prevents 100 concurrent users from all hitting Groq simultaneously:
+The **LLM semaphore** prevents 100 concurrent users from all hitting the LLM provider simultaneously:
 
 ```python
 _LLM_SEMAPHORE = _TrackedSemaphore(15)  # 15 concurrent LLM calls per worker
@@ -209,9 +209,9 @@ async with _LLM_SEMAPHORE:
 
 ### Streaming: Thread + Queue Pattern
 
-The streaming endpoint is the most interesting. The Groq client is synchronous — running it directly in the async generator would block the event loop on every `next()` call during token generation.
+The streaming endpoint is the most interesting part. The LLM client (Together AI / Groq) is synchronous, so running it directly in an async generator would block the event loop on every `next()` call during token generation.
 
-Solution: run the generator in a thread pool, pass tokens through a bounded `asyncio.Queue`:
+The solution: run the generator in a thread pool and pass tokens through a bounded `asyncio.Queue`:
 
 ```mermaid
 sequenceDiagram
@@ -219,7 +219,7 @@ sequenceDiagram
     participant E as event_stream() [async]
     participant Q as asyncio.Queue(maxsize=32)
     participant T as _run_stream() [thread]
-    participant G as Groq API
+    participant G as LLM API
 
     C->>E: POST /api/query/stream
     E->>T: run_in_executor(_run_stream)
@@ -233,7 +233,7 @@ sequenceDiagram
     E-->>C: data: [DONE]
 ```
 
-The `maxsize=32` queue provides **backpressure** — if the client network is slow, the producer thread blocks on `fut.result()` instead of buffering unbounded tokens. A 45-second `wait_for` on the queue prevents infinite hangs when Groq stalls (not a fast 429, but a slow stall).
+`maxsize=32` provides **backpressure**: if the client network is slow, the producer thread blocks on `fut.result()` instead of buffering unbounded tokens. A 45-second `wait_for` on the queue handles the case where the LLM provider stalls on a slow request rather than returning a fast 429.
 
 ---
 
@@ -284,11 +284,11 @@ Hetzner CX22 ($6/month)
   ├── bge-reranker in memory (~500MB)
   └── Qdrant in Docker (persistent)
   ↓
-Groq API — Llama 4 Scout 17B
+Together AI — Llama 3.3 70B (pay-as-you-go)
 Supabase — free tier
 ```
 
-Practical limit: ~20-50 simultaneous users. Groq free tier (14,400 req/day) is the first ceiling.
+Practical limit: ~20-50 simultaneous users. Together AI rate limits and per-query cost are the first ceilings. Tune `GLOBAL_DAILY_LIMIT` to match your billing budget.
 
 </details>
 
@@ -296,7 +296,7 @@ Practical limit: ~20-50 simultaneous users. Groq free tier (14,400 req/day) is t
 <summary><strong>Phase 2 — 10x traffic (~$20/month)</strong></summary>
 
 Key changes:
-- **Groq Developer tier** (600 RPM vs 30 RPM) — removes the first ceiling
+- **Higher LLM tier or cheaper model** for high-volume queries — removes the rate ceiling
 - **Redis for session store** — current in-memory sessions break under multi-worker Gunicorn; Redis gives TTL-based sharing across workers
 - **Hetzner CX32** (4 vCPU, 8GB) — 4 Gunicorn workers, BGE-M3 FP16 per worker
 
@@ -305,7 +305,7 @@ Key changes:
 <details>
 <summary><strong>Phase 3 — 100x traffic (~$100-200/month)</strong></summary>
 
-The real bottleneck at scale is **BGE-M3 CPU encoding** — 2-5s per query on CPU becomes the wall before Groq rate limits. Options:
+At this scale, **BGE-M3 CPU encoding** becomes the bottleneck at 2-5s per query, before LLM rate limits. Options:
 
 - **ONNX-quantized BGE-M3** — 3x faster inference, half RAM, no GPU needed
 - **GPU inference** — 10x faster, meaningful cost
@@ -322,7 +322,7 @@ What doesn't change: Qdrant queries (<100ms), corpus pipeline (offline), Next.js
 <details>
 <summary><strong>Why not OpenAI embeddings?</strong></summary>
 
-`text-embedding-3-large` scores ~64.6 on MTEB vs 64.3 for BGE-M3 — essentially identical. But BGE-M3 generates dense + sparse in one pass (eliminating separate BM25 infrastructure), runs locally (no per-query cost, no external dependency for retrieval), and has stronger multilingual coverage for Sanskrit-adjacent philosophical English. The marginal quality gap doesn't justify the ongoing cost and external dependency.
+`text-embedding-3-large` scores ~64.6 on MTEB vs 64.3 for BGE-M3: essentially identical. But BGE-M3 generates dense + sparse in one pass (eliminating separate BM25 infrastructure), runs locally (no per-query cost, no external dependency for retrieval), and has stronger multilingual coverage for Sanskrit-adjacent philosophical English. The marginal quality gap doesn't justify the ongoing cost and external dependency.
 
 </details>
 
@@ -341,9 +341,9 @@ Upanishadic arguments and Pali sutta discourses develop ideas over 200-400 words
 </details>
 
 <details>
-<summary><strong>Why Llama 4 Scout over GPT-4?</strong></summary>
+<summary><strong>Why Llama 3.3 70B over GPT-4?</strong></summary>
 
-Groq's inference speed (~5s to first token) matters for streaming UX — users see text appearing, not a loading spinner. GPT-4 costs 10-50x more per query and is slower. Scout 17B handles multi-tradition synthesis with enough nuance to distinguish Advaita from Vishishtadvaita and note where Buddhist and Vedantic concepts of self genuinely diverge. At this scale, that's sufficient.
+Together AI's Llama 3.3 70B gives ~3-8s to first token with strong citation quality. GPT-4 costs 10-50x more per query for marginal gains on this domain. The provider is configurable: set `TOGETHER_API_KEY` for Together AI or `GROQ_API_KEY` for Groq. Both use the same OpenAI-compatible streaming interface, so swapping is one env var change.
 
 </details>
 
@@ -374,13 +374,13 @@ Key coverage: streaming timeout and error events, `_TrackedSemaphore` concurrenc
 
 ## What I'd Do Differently
 
-**Async from day one.** The blocking I/O refactor was correct but retrofitted. A greenfield build uses async Groq client and async Qdrant from the start — no `asyncio.to_thread` wrapping needed.
+**Async from day one.** The blocking I/O refactor was correct but retrofitted. A greenfield build uses an async LLM client and async Qdrant from the start, with no `asyncio.to_thread` wrapping needed.
 
 **Streaming corpus ingestion.** The 15MB Mahabharata loads entirely into memory during parsing. A generator-based parser handles arbitrarily large texts without RAM spikes.
 
-**Structured LLM output.** The follow-up question parser uses regex on free-form text. Groq's structured outputs mode with a Pydantic schema would be more reliable.
+**Structured LLM output.** The follow-up question parser uses regex on free-form text. Structured outputs mode with a Pydantic schema would be more reliable.
 
-**Corpus is the product.** The biggest quality gains came from corpus work — not prompt tuning. The addition of Aitareya, Kaushitaki, and Maitri Upanishads improved philosophical depth more than any retrieval parameter change. Future investment goes there first.
+**Corpus is the product.** The biggest quality gains came from corpus work, not prompt tuning. Adding the Aitareya, Kaushitaki, and Maitri Upanishads improved philosophical depth more than any retrieval parameter change. Future investment goes there first.
 
 ---
 

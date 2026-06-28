@@ -29,7 +29,7 @@ An AI assistant for Indian philosophy — citation-grounded answers drawn from t
 | Layer | Technology |
 |---|---|
 | **RAG Pipeline** | bge-m3 (hybrid dense + sparse), bge-reranker-v2-m3 cross-encoder, Qdrant |
-| **LLM** | Groq — Llama 4 Scout 17B |
+| **LLM** | Together AI — Llama 3.3 70B (Groq fallback) |
 | **Backend** | FastAPI (Python 3.11+) |
 | **Frontend** | Next.js 14, Tailwind CSS |
 | **Database** | Supabase (PostgreSQL + Auth + RLS) |
@@ -71,7 +71,7 @@ Full source attribution, license verification, and download provenance in [`CORP
 - Python 3.11+
 - Node.js 18+
 - [Qdrant](https://qdrant.tech/) running locally
-- [Groq API key](https://console.groq.com) (free tier available)
+- [Together AI API key](https://api.together.xyz) (pay-as-you-go) or [Groq API key](https://console.groq.com) (free tier)
 - [Supabase](https://supabase.com) project (free tier)
 
 ### Setup
@@ -129,7 +129,9 @@ Copy `.env.example` to `.env`:
 
 | Variable | Description |
 |---|---|
-| `GROQ_API_KEY` | Groq API key |
+| `TOGETHER_API_KEY` | Together AI key (primary LLM provider) |
+| `GROQ_API_KEY` | Groq key (fallback if Together not set) |
+| `GLOBAL_DAILY_LIMIT` | Org-wide query cap per day (default: `15400`, set `0` to disable) |
 | `QDRANT_URL` | Qdrant server URL (default: `http://localhost:6333`) |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key (backend only) |

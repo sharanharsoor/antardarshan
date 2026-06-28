@@ -429,7 +429,7 @@ async def query_endpoint(request: Request, req: QueryRequest):
             return 0
     _global_used = await asyncio.to_thread(_check_global_quota)
 
-    if _global_used >= GLOBAL_DAILY_LIMIT:
+    if GLOBAL_DAILY_LIMIT > 0 and _global_used >= GLOBAL_DAILY_LIMIT:
         raise HTTPException(
             status_code=429,
             detail={
@@ -659,9 +659,9 @@ async def quota_status():
     except Exception:
         queries_today = 0
 
-    if queries_today >= daily_limit:
+    if daily_limit > 0 and queries_today >= daily_limit:
         status = "exhausted"
-    elif queries_today >= daily_limit * 0.8:
+    elif daily_limit > 0 and queries_today >= daily_limit * 0.8:
         status = "limited"
     else:
         status = "available"
@@ -1019,7 +1019,7 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
 
     _global_used2 = await asyncio.to_thread(_check_global_quota_stream)
 
-    if _global_used2 >= GLOBAL_DAILY_LIMIT:
+    if GLOBAL_DAILY_LIMIT > 0 and _global_used2 >= GLOBAL_DAILY_LIMIT:
         return JSONResponse(status_code=429, content={"detail": {
             "error": "global_limit_reached", "limit": GLOBAL_DAILY_LIMIT,
             "message": "Daily query limit reached. Come back tomorrow.",
