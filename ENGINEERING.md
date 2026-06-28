@@ -98,7 +98,7 @@ The single highest-leverage decision was treating **corpus curation as a first-c
 | Buddhist | 4 Pali Nikayas + Dhammapada + Sutta Nipata + Udana + Therigatha + Theragatha + Itivuttaka + Milindapanha | ~5,200 |
 | Jain & Sant/Bhakti | Jain Sutras, Songs of Kabir, Thirukkural, Psalms of Maratha Saints | ~1,300 |
 
-All texts are **public domain (pre-1928) or CC0**. Full source attribution and license proof documented in [`DATA-SOURCES.md`](DATA-SOURCES.md).
+All texts are **public domain (pre-1928) or CC0**. Full source attribution and license proof documented in [`CORPUS.md`](CORPUS.md).
 
 ### The Chunking Problem
 

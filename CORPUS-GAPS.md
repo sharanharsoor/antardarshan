@@ -61,5 +61,5 @@ Then add each to `ingestion/process_all.py` + `backend/corpus_index.py` READABLE
 
 | Issue | Resolution |
 |---|---|
-| DATA-SOURCES.md had wrong Gutenberg IDs for Vishnu Purana (#9394), Sama Veda (#16367), Gita Govinda (#7733) | Documented in DATA-SOURCES.md Section 18. IDs point to unrelated books. Use sacred-texts.com directly. |
-| Agni Purana Vol 2 was never downloaded despite DATA-SOURCES.md claiming it was | File was missing from corpus/raw/. Needs fresh download from archive.org. |
+| Wrong Gutenberg IDs for Vishnu Purana (#9394), Sama Veda (#16367), Gita Govinda (#7733) | Those IDs point to unrelated books. Use sacred-texts.com directly for all three. |
+| Agni Purana Vol 2 was never downloaded | File was missing from corpus/raw/. Needs fresh download from archive.org. |

@@ -61,7 +61,7 @@ An AI assistant for Indian philosophy — citation-grounded answers drawn from t
 - Songs of Kabir (Tagore), Psalms of Maratha Saints, Thirukkural
 - Vivekananda — Raja-Yoga, Karma-Yoga, Jnana-Yoga
 
-Full source attribution, license verification, and download provenance in [`DATA-SOURCES.md`](DATA-SOURCES.md).
+Full source attribution, license verification, and download provenance in [`CORPUS.md`](CORPUS.md).
 
 ---
 
@@ -160,7 +160,7 @@ antardarshan/
 ├── tests/                # Test suite (370+ tests)
 ├── eval/                 # Retrieval quality benchmarks (25 queries)
 ├── supabase/migrations/  # Database schema
-└── DATA-SOURCES.md       # Full corpus attribution + legal status
+└── CORPUS.md             # Full corpus attribution + legal status
 ```
 
 ---
@@ -187,4 +187,4 @@ python -m ingestion.admin verify
 
 Code: **MIT**
 
-Corpus texts: Public domain (pre-1928 US) or CC0. See [`DATA-SOURCES.md`](DATA-SOURCES.md) for full per-source attribution, license proof, and removal paths.
+Corpus texts: Public domain (pre-1928 US) or CC0. See [`CORPUS.md`](CORPUS.md) for full per-source attribution, license proof, and removal paths.

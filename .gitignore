@@ -18,14 +18,11 @@ build/
 chunking/
 llm-smartmem/
 
-# LLM planning drafts — internal working documents, not for contributors
-COMBINED-PLAN.md
-claude-opus-4-plan.md
-indian_philosophy_ai_mvp_Codex-5.3.plan.md
-plan-sonnet-4-6.md
+# Screenshots in root — keep narrow, frontend/public/ has intentional image assets
+Screenshot*.png
+Screenshot*.jpg
 
-# Screenshots and canvas artifacts
-*.png
+# Canvas artifacts (editor-specific, not part of source)
 *.canvas.tsx
 *.canvas
 
@@ -81,9 +78,6 @@ DATA-SOURCES.md
 claude-opus-4-plan.md
 indian_philosophy_ai_mvp_Codex-5.3.plan.md
 plan-sonnet-4-6.md
-*.png
-*.jpg
-*.jpeg
 
 # Cursor AI editor config files
 frontend/AGENTS.md
