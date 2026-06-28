@@ -1,17 +1,35 @@
 """
 Wisdom Wall — LLM moderation helper and Supabase helpers.
 
-Uses a separate Groq key (GROQ_MODERATION_KEY) for moderation so the main
-Q&A budget is not affected. Falls back to GROQ_API_KEY if not set.
+Moderation provider priority (same pattern as llm.py):
+  1. TOGETHER_API_KEY — uses meta-llama/Llama-3.2-3B-Instruct-Turbo (cheap, fast)
+  2. GROQ_MODERATION_KEY / GROQ_API_KEY — legacy fallback
+
+If neither key is set and Wisdom Wall is in use, moderation is fail-open
+(posts approved automatically). This is intentional for brief outages but
+should not be the permanent production state — set at least one key.
 """
 
 import os
 from datetime import datetime, timezone, timedelta
 
-from groq import Groq
+_TOGETHER_KEY  = os.getenv("TOGETHER_API_KEY", "")
+_GROQ_MOD_KEY  = os.getenv("GROQ_MODERATION_KEY") or os.getenv("GROQ_API_KEY", "")
 
-GROQ_MOD_KEY   = os.getenv("GROQ_MODERATION_KEY") or os.getenv("GROQ_API_KEY")
-MODEL_MOD      = "llama-3.1-8b-instant"   # Free tier; moderation needs no RAG context
+# Together: small cheap model is fine for moderation (no RAG context needed)
+# Groq:     llama-3.1-8b-instant (free tier)
+if _TOGETHER_KEY:
+    from openai import OpenAI as _OpenAI
+    MODEL_MOD = os.getenv("MOD_MODEL", "meta-llama/Llama-3.2-3B-Instruct-Turbo")
+    _MOD_PROVIDER = "together"
+elif _GROQ_MOD_KEY:
+    from groq import Groq as _Groq
+    MODEL_MOD = "llama-3.1-8b-instant"
+    _MOD_PROVIDER = "groq"
+else:
+    MODEL_MOD = ""
+    _MOD_PROVIDER = "none"
+
 MAX_MOD_TOKENS = 150
 MAX_POST_CHARS = 2000
 MAX_POSTS_PER_DAY = 5
@@ -35,20 +53,24 @@ _mod_client = None
 
 def _get_mod_client():
     global _mod_client
-    if _mod_client is None and GROQ_MOD_KEY:
-        _mod_client = Groq(api_key=GROQ_MOD_KEY)
+    if _mod_client is not None:
+        return _mod_client
+    if _MOD_PROVIDER == "together":
+        _mod_client = _OpenAI(api_key=_TOGETHER_KEY, base_url="https://api.together.xyz/v1")
+    elif _MOD_PROVIDER == "groq":
+        _mod_client = _Groq(api_key=_GROQ_MOD_KEY)
     return _mod_client
 
 
 def moderate_post(content: str) -> tuple[bool, str]:
     """
-    Check a post against Wisdom Wall guidelines using Llama 8B.
+    Check a post against Wisdom Wall guidelines using a small LLM.
     Returns (is_approved: bool, reason: str).
 
-    INTENTIONAL FAIL-OPEN: If Groq is unavailable or returns an unclear response,
-    posts are approved rather than blocked. Rationale: a brief outage should not
-    prevent all Wisdom Wall submissions; the cron job auto-removes downvoted
-    content, and admins can hard-delete via Supabase if needed.
+    INTENTIONAL FAIL-OPEN: If the moderation LLM is unavailable or returns an
+    unclear response, posts are approved rather than blocked. A brief outage
+    should not block all Wisdom Wall submissions; the cron job auto-removes
+    downvoted content, and admins can hard-delete via Supabase if needed.
     Revisit for V2 if abuse becomes a problem.
     """
     client = _get_mod_client()

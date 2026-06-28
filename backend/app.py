@@ -170,7 +170,8 @@ class FeedbackRequest(BaseModel):
 
 # --- DB ---
 
-ANON_DAILY_LIMIT = 250  # max anonymous queries per day (global, not per-IP)
+ANON_DAILY_LIMIT   = 250        # max anonymous queries per day (global, not per-IP)
+GLOBAL_DAILY_LIMIT = int(os.getenv("GLOBAL_DAILY_LIMIT", "15400"))  # org-wide cap; set 0 to disable
 
 
 def _init_db():
@@ -415,7 +416,6 @@ async def query_endpoint(request: Request, req: QueryRequest):
     from datetime import datetime, timezone as _tz
 
     # 1. Global org-level daily limit (SQLite) — run in thread (blocking I/O)
-    GLOBAL_DAILY_LIMIT = 15_400
     def _check_global_quota():
         try:
             conn = sqlite3.connect(str(DB_PATH))
@@ -646,7 +646,7 @@ async def get_verse_detail(request: Request, scripture: str, chapter: int, verse
 async def quota_status():
     """Global query availability status. Frontend shows green/yellow/red dot."""
     from datetime import timezone, datetime
-    daily_limit = 15_400  # 14,400 simple + 1,000 deep
+    daily_limit = GLOBAL_DAILY_LIMIT
 
     try:
         conn = sqlite3.connect(str(DB_PATH))
@@ -1003,7 +1003,6 @@ async def query_endpoint_stream(request: Request, req: QueryRequest):
     from backend.llm import generate_response_stream
 
     # ── Quota checks — identical to non-streaming endpoint, all in threads ──────
-    GLOBAL_DAILY_LIMIT = 15_400
     from datetime import datetime, timezone as _tz2
 
     def _check_global_quota_stream():

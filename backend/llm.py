@@ -238,7 +238,7 @@ Answer using ONLY the sources listed above. If a source does not support a claim
                       "history_turns": len(conversation_history or []) // 2},
         )
         generation = trace.generation(
-            name="groq_llm", model=model,
+            name="llm_generation", model=model,
             input={"messages": messages} if log_content else {"mode": mode, "num_sources": len(hits)},
             metadata={"mode": mode, "temperature": 0.3},
         )
@@ -376,10 +376,12 @@ def generate_response_stream(
         )
 
     def _attempt_stream(attempt_messages, attempt_hits, max_tok=3072):
-        return client.chat.completions.create(
-            model=model, messages=attempt_messages,
-            temperature=0.3, max_tokens=max_tok, stream=True,
-        )
+        kwargs: dict = dict(model=model, messages=attempt_messages,
+                            temperature=0.3, max_tokens=max_tok, stream=True)
+        if _USE_TOGETHER:
+            # Together AI requires explicit opt-in to get usage in streaming chunks
+            kwargs["stream_options"] = {"include_usage": True}
+        return client.chat.completions.create(**kwargs)
 
     # Retry stages matching the non-streaming endpoint
     retry_stages = [
@@ -440,7 +442,7 @@ def generate_response_stream(
 
         if trace:
             trace.generation(
-                name="groq_llm", model=model,
+                name="llm_generation", model=model,
                 input={"messages": stage_messages} if log_content else {"mode": mode, "num_sources": len(hits)},
                 output=answer if log_content else {"answer_length": len(answer)},
                 usage={"input": prompt_tokens, "output": completion_tokens},
