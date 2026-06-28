@@ -34,9 +34,9 @@ function AboutContent() {
       <section>
         <h2 className="font-serif text-xl font-semibold mb-3">What&apos;s inside</h2>
         <p className="text-sm text-muted leading-relaxed">
-          {total} scriptures indexed across Vedanta, Yoga, Buddhist, Jain, and Sant/Bhakti traditions.
-          {readable} have clean readable text you can browse like a book. The remaining {ragOnly} are older
-          scanned texts — they power the AI search but aren&apos;t formatted for direct reading.
+          {total} scriptures indexed across Vedanta, Yoga, Buddhist, Jain, and Sant/Bhakti traditions.{" "}
+          {readable} have clean readable text you can browse like a book.{" "}
+          The remaining {ragOnly} are older scanned texts — they power the AI search but aren&apos;t formatted for direct reading.
         </p>
         <p className="text-sm text-muted leading-relaxed mt-2">
           There&apos;s no advertising here. Your questions aren&apos;t stored or used for training by default.
