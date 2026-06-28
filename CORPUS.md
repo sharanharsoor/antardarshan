@@ -35,9 +35,9 @@ All 54 texts are public domain (pre-1928 US publication) or CC0. No copyrighted 
 | Text | Translator | Year | Source |
 |---|---|---|---|
 | Yoga Sutras of Patanjali | Charles Johnston | 1912 | [Project Gutenberg #2526](https://www.gutenberg.org/ebooks/2526) |
-| Vivekananda — Raja-Yoga | Swami Vivekananda | 1896 | Wikisource (d. 1902, public domain) |
-| Vivekananda — Karma-Yoga | Swami Vivekananda | 1896 | Wikisource |
-| Vivekananda — Jnana-Yoga | Swami Vivekananda | 1899 | Wikisource |
+| Vivekananda — Raja-Yoga | Swami Vivekananda | 1896 | [Wikisource — Complete Works](https://en.wikisource.org/wiki/The_Complete_Works_of_Swami_Vivekananda) |
+| Vivekananda — Karma-Yoga | Swami Vivekananda | 1896 | [Wikisource — Complete Works](https://en.wikisource.org/wiki/The_Complete_Works_of_Swami_Vivekananda) |
+| Vivekananda — Jnana-Yoga | Swami Vivekananda | 1899 | [Wikisource — Complete Works](https://en.wikisource.org/wiki/The_Complete_Works_of_Swami_Vivekananda) |
 
 ---
 
@@ -45,7 +45,7 @@ All 54 texts are public domain (pre-1928 US publication) or CC0. No copyrighted 
 
 | Text | Translator | Year | Source |
 |---|---|---|---|
-| Mahabharata (complete) | Kisari Mohan Ganguli | 1883–96 | sacred-texts.com (proofread edition) |
+| Mahabharata (complete) | Kisari Mohan Ganguli | 1883–96 | [sacred-texts.com](https://www.sacred-texts.com/hin/maha/index.htm) — proofread edition |
 | Ramayana | Ralph T.H. Griffith | 1895 | [Project Gutenberg #24869](https://www.gutenberg.org/ebooks/24869) |
 | Rig Veda | Ralph T.H. Griffith | 1896 | [Project Gutenberg #12555](https://www.gutenberg.org/ebooks/12555) |
 | Atharva Veda | Ralph T.H. Griffith | 1895 | [Project Gutenberg #16295](https://www.gutenberg.org/ebooks/16295) |
@@ -82,15 +82,15 @@ All 54 texts are public domain (pre-1928 US publication) or CC0. No copyrighted 
 | Text | Translator | Year | Source |
 |---|---|---|---|
 | Dhammapada | Bhikkhu Sujato | 2021 | [SuttaCentral](https://suttacentral.net) (CC0) |
-| Digha Nikaya | Bhikkhu Sujato | 2021 | SuttaCentral (CC0) |
-| Majjhima Nikaya | Bhikkhu Sujato | 2021 | SuttaCentral (CC0) |
-| Samyutta Nikaya | Bhikkhu Sujato | 2021 | SuttaCentral (CC0) |
-| Anguttara Nikaya | Bhikkhu Sujato | 2021 | SuttaCentral (CC0) |
-| Sutta Nipata | Bhikkhu Sujato | 2021 | SuttaCentral (CC0) |
-| Udana | Bhikkhu Sujato | 2021 | SuttaCentral (CC0) |
-| Itivuttaka | Bhikkhu Sujato | 2021 | SuttaCentral (CC0) |
-| Theragatha | Bhikkhu Sujato | 2021 | SuttaCentral (CC0) |
-| Therigatha | Bhikkhu Sujato | 2021 | SuttaCentral (CC0) |
+| Digha Nikaya | Bhikkhu Sujato | 2021 | [suttacentral.net/dn](https://suttacentral.net/dn) (CC0) |
+| Majjhima Nikaya | Bhikkhu Sujato | 2021 | [suttacentral.net/mn](https://suttacentral.net/mn) (CC0) |
+| Samyutta Nikaya | Bhikkhu Sujato | 2021 | [suttacentral.net/sn](https://suttacentral.net/sn) (CC0) |
+| Anguttara Nikaya | Bhikkhu Sujato | 2021 | [suttacentral.net/an](https://suttacentral.net/an) (CC0) |
+| Sutta Nipata | Bhikkhu Sujato | 2021 | [suttacentral.net/snp](https://suttacentral.net/snp) (CC0) |
+| Udana | Bhikkhu Sujato | 2021 | [suttacentral.net/ud](https://suttacentral.net/ud) (CC0) |
+| Itivuttaka | Bhikkhu Sujato | 2021 | [suttacentral.net/iti](https://suttacentral.net/iti) (CC0) |
+| Theragatha | Bhikkhu Sujato | 2021 | [suttacentral.net/thag](https://suttacentral.net/thag) (CC0) |
+| Therigatha | Bhikkhu Sujato | 2021 | [suttacentral.net/thig](https://suttacentral.net/thig) (CC0) |
 | Milindapanha (Questions of King Milinda) | T.W. Rhys Davids | 1890 | [Internet Archive](https://archive.org/details/questionsofkingm01davi) |
 
 ---
