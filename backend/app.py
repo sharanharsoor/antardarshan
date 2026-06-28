@@ -210,6 +210,7 @@ def _get_and_increment_anon_count(today: str) -> int:
     """
     import time as _time
     for attempt in range(3):
+        conn = None
         try:
             conn = sqlite3.connect(str(DB_PATH), timeout=10)
             conn.execute(
@@ -221,7 +222,6 @@ def _get_and_increment_anon_count(today: str) -> int:
             row = conn.execute(
                 "SELECT count FROM anon_daily_counts WHERE date = ?", (today,)
             ).fetchone()
-            conn.close()
             return row[0] if row else 1
         except sqlite3.OperationalError:
             if attempt == 2:
@@ -229,6 +229,9 @@ def _get_and_increment_anon_count(today: str) -> int:
             _time.sleep(0.05 * (attempt + 1))
         except Exception:
             return 0  # any other DB error — fail-open
+        finally:
+            if conn is not None:
+                conn.close()  # always close, even on error or retry
     return 0
 
 
