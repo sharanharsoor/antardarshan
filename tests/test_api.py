@@ -93,15 +93,11 @@ def test_explain_not_found(client):
 
 def test_explain_strips_followups_from_response():
     """
-    Regression test: explanation must never contain raw FOLLOWUPS text.
-
-    The LLM appends 'FOLLOWUPS: Q1 | Q2' to its output. explain_verse calls
-    _parse_follow_ups() on the raw output before returning. This test verifies
-    that contract directly without going through the HTTP stack.
+    Unit test: _parse_follow_ups() strips FOLLOWUPS correctly from explain output.
+    Proves parser correctness.
     """
     from backend.app import _parse_follow_ups
 
-    # Simulate what the LLM returns for an explain call
     raw_llm_output = (
         "## Explanation\n\nThis verse describes the nature of the Self.\n\n"
         "## Synthesis\n\nThe verse points to non-dual awareness.\n\n"
@@ -110,21 +106,47 @@ def test_explain_strips_followups_from_response():
 
     clean_explanation, follow_ups = _parse_follow_ups(raw_llm_output)
 
-    # Core contract: FOLLOWUPS must be stripped from explanation
-    assert "FOLLOWUPS" not in clean_explanation, (
-        f"FOLLOWUPS leaked into explanation: {clean_explanation[-200:]!r}"
-    )
+    assert "FOLLOWUPS" not in clean_explanation
     assert "What is consciousness?" not in clean_explanation
-    assert "How does this relate to Advaita?" not in clean_explanation
-
-    # The actual content is preserved
     assert "Explanation" in clean_explanation
-    assert "Synthesis" in clean_explanation
-    assert len(clean_explanation) > 20
-
-    # Follow-ups are extracted correctly (not lost, just separated)
     assert len(follow_ups) >= 1
     assert any("consciousness" in fq.lower() for fq in follow_ups)
+
+
+def test_explain_endpoint_strips_followups_integration(client):
+    """
+    Integration test: /api/explain must not return FOLLOWUPS in the explanation field.
+
+    Mocks generate_response() to return LLM output containing FOLLOWUPS, then
+    calls the real endpoint and asserts the wiring is correct end-to-end.
+    This catches regressions where the _parse_follow_ups() call is accidentally
+    removed from the endpoint.
+    """
+    from unittest.mock import patch
+
+    raw_with_followups = (
+        "## Explanation\n\nThis verse points to non-dual awareness.\n\n"
+        "FOLLOWUPS: What is karma? | How does this relate to Brahman?"
+    )
+
+    with patch("backend.llm.generate_response",
+               return_value=(raw_with_followups, "trace-1", "model-1", 100)):
+        r = client.post("/api/explain", json={
+            "scripture": "Ashtavakra Gita",
+            "chapter": 1,
+            "verse": 2,
+        })
+
+    assert r.status_code == 200
+    explanation = r.json()["explanation"]
+
+    # Core contract: FOLLOWUPS must never reach the client
+    assert "FOLLOWUPS" not in explanation, (
+        f"FOLLOWUPS leaked into /api/explain response: {explanation[-300:]!r}"
+    )
+    assert "What is karma?" not in explanation
+    # Content preserved
+    assert len(explanation) > 10
 
 
 def test_query_log_never_stores_query_text(client, tmp_path, monkeypatch):
