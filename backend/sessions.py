@@ -5,7 +5,7 @@ Uses llm-smartmem (Memory) for token-aware context management.
 Each session gets its own Memory object — token budget is respected
 automatically, no manual message slicing needed.
 
-Privacy model (from COMBINED-PLAN.md Section 13):
+Privacy model:
 - Sessions live in RAM only, never written to disk or DB
 - Auto-expire after 24 hours (or server restart)
 - No user_id attached to sessions — anonymous by design

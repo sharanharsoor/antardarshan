@@ -188,7 +188,7 @@ Answer using ONLY the sources listed above. If a source does not support a claim
     )
 
     # LangFuse trace — log metadata only, NOT message content.
-    # User queries may contain sensitive information (Section 13 privacy decision).
+    # User queries may contain sensitive information — never log query text.
     # We trace operational signals (mode, model, token counts, latency) without
     # sending any user-identifiable content to a third-party service.
     lf = _get_langfuse()

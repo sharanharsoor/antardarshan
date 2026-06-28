@@ -71,13 +71,21 @@ htmlcov/
 .coverage
 tests/load_report.html
 
-# Internal planning docs — not for public repo
+# Internal planning and research docs — not for public repo
 DESIGN.md
 IMPLEMENTATION-DESIGN.md
 PRODUCTION-CHECKLIST.md
 V1-ROADMAP.md
 COMBINED-PLAN.md
+DATA-SOURCES.md
 claude-opus-4-plan.md
 indian_philosophy_ai_mvp_Codex-5.3.plan.md
 plan-sonnet-4-6.md
+*.png
+*.jpg
+*.jpeg
+
+# Cursor AI editor config files
+frontend/AGENTS.md
+frontend/CLAUDE.md
 admin/

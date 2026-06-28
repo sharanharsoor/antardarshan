@@ -1,4 +1,20 @@
-export default function AboutPage() {
+"use client";
+import { useEffect, useState } from "react";
+
+function AboutContent() {
+  const [stats, setStats] = useState<{ total_texts?: number; readable_texts?: number; rag_only_texts?: number } | null>(null);
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/stats`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => d && setStats(d))
+      .catch(() => {});
+  }, []);
+
+  const total = stats?.total_texts ?? 54;
+  const readable = stats?.readable_texts ?? 32;
+  const ragOnly = stats?.rag_only_texts ?? 22;
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 space-y-10">
 
@@ -18,9 +34,9 @@ export default function AboutPage() {
       <section>
         <h2 className="font-serif text-xl font-semibold mb-3">What&apos;s inside</h2>
         <p className="text-sm text-muted leading-relaxed">
-          We&apos;ve indexed 44 scriptures across Vedanta, Yoga, Buddhist, Jain, Sikh, and Sant/Bhakti traditions.
-          21 of them have clean readable text you can browse like a book. The remaining 23 are older scanned
-          texts. They power the AI search but aren&apos;t pretty enough to read directly yet.
+          {total} scriptures indexed across Vedanta, Yoga, Buddhist, Jain, and Sant/Bhakti traditions.
+          {readable} have clean readable text you can browse like a book. The remaining {ragOnly} are older
+          scanned texts — they power the AI search but aren&apos;t formatted for direct reading.
         </p>
         <p className="text-sm text-muted leading-relaxed mt-2">
           There&apos;s no advertising here. Your questions aren&apos;t stored or used for training by default.
@@ -94,4 +110,8 @@ export default function AboutPage() {
 
     </div>
   );
+}
+
+export default function AboutPage() {
+  return <AboutContent />;
 }

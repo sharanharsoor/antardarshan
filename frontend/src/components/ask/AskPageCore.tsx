@@ -409,7 +409,7 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
       window.dispatchEvent(new CustomEvent("conversation-updated"));
     } catch (err: unknown) {
       const status = (err as { status?: number })?.status;
-      const detail = (err as { detail?: { error?: string; message?: string } })?.detail;
+      const detail = (err as { detail?: { error?: string; message?: string; limit?: number } })?.detail;
       let errorContent = "Could not reach the server. Please try again.";
       if (status === 429) {
         if (detail?.error === "global_limit_reached") {

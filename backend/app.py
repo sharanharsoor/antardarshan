@@ -249,7 +249,7 @@ def _get_anon_count(today: str) -> int:
 
 
 def _log_query(mode: str, citations: list, latency_ms: int, tradition: str = None):
-    """Log anonymous analytics only. NEVER stores query text (privacy decision, Section 13)."""
+    """Log anonymous analytics only. Query text is never stored — privacy by design."""
     try:
         conn = sqlite3.connect(str(DB_PATH))
         conn.execute(
