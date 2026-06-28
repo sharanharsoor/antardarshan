@@ -1249,7 +1249,9 @@ async def explain_verse(request: Request, req: ExplainRequest):
             mode="exploration",
             use_deep_model=False,
         )
-    return {"verse": verse, "explanation": explanation_text, "context_verses": context_verses}
+    # Strip follow-up suggestions from explanation — reading mode has no follow-up UI
+    clean_explanation, _ = _parse_follow_ups(explanation_text)
+    return {"verse": verse, "explanation": clean_explanation, "context_verses": context_verses}
 
 
 # ══════════════════════════════════════════════════════════════════════

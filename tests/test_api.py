@@ -91,6 +91,42 @@ def test_explain_not_found(client):
     assert r.status_code == 404
 
 
+def test_explain_strips_followups_from_response():
+    """
+    Regression test: explanation must never contain raw FOLLOWUPS text.
+
+    The LLM appends 'FOLLOWUPS: Q1 | Q2' to its output. explain_verse calls
+    _parse_follow_ups() on the raw output before returning. This test verifies
+    that contract directly without going through the HTTP stack.
+    """
+    from backend.app import _parse_follow_ups
+
+    # Simulate what the LLM returns for an explain call
+    raw_llm_output = (
+        "## Explanation\n\nThis verse describes the nature of the Self.\n\n"
+        "## Synthesis\n\nThe verse points to non-dual awareness.\n\n"
+        "FOLLOWUPS: What is consciousness? | How does this relate to Advaita?"
+    )
+
+    clean_explanation, follow_ups = _parse_follow_ups(raw_llm_output)
+
+    # Core contract: FOLLOWUPS must be stripped from explanation
+    assert "FOLLOWUPS" not in clean_explanation, (
+        f"FOLLOWUPS leaked into explanation: {clean_explanation[-200:]!r}"
+    )
+    assert "What is consciousness?" not in clean_explanation
+    assert "How does this relate to Advaita?" not in clean_explanation
+
+    # The actual content is preserved
+    assert "Explanation" in clean_explanation
+    assert "Synthesis" in clean_explanation
+    assert len(clean_explanation) > 20
+
+    # Follow-ups are extracted correctly (not lost, just separated)
+    assert len(follow_ups) >= 1
+    assert any("consciousness" in fq.lower() for fq in follow_ups)
+
+
 def test_query_log_never_stores_query_text(client, tmp_path, monkeypatch):
     """
     Privacy contract test (Section 13 of COMBINED-PLAN.md).
