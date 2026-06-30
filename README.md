@@ -77,8 +77,8 @@ Full source attribution, license verification, and download provenance in [`CORP
 ### Setup
 
 ```bash
-# Clone
-git clone https://github.com/sharanharsoor/antardarshan.git
+# Clone (--recurse-submodules fetches the SuttaCentral Pali Canon data)
+git clone --recurse-submodules https://github.com/sharanharsoor/antardarshan.git
 cd antardarshan
 
 # Backend
