@@ -171,8 +171,11 @@ def _rerank(query: str, hits: list[dict], top_k: int = 5) -> list[dict]:
     if not reranker or len(hits) <= top_k:
         return hits[:top_k]
 
+    import time as _time
+    _t = _time.time()
     pairs = [(query, h["text"]) for h in hits]
     scores = reranker.predict(pairs)
+    print(f"  [TIMING] reranker.predict({len(pairs)} pairs): {_time.time()-_t:.2f}s")
 
     for hit, score in zip(hits, scores):
         hit["rerank_score"] = float(score)
@@ -443,11 +446,16 @@ def search(query: str, top_k: int = 5) -> list[dict]:
     corpus — the cap applies uniformly. Configurable via MAX_PER_SOURCE.
     """
 
+    import time as _time
+    _t0 = _time.time()
+
     # Step 1: Query analysis
     intent = analyze_query(query)
 
     # Step 2: Encode query (dense + sparse in one pass for bge-m3)
+    _t1 = _time.time()
     dense_vector, sparse_dict = _encode_query(query)
+    print(f"  [TIMING] encode_query: {_time.time()-_t1:.2f}s")
 
     # Step 3: Retrieve candidates — fetch more so balancing has material to work with
     RETRIEVE_K = 50  # larger pool = better diversity after balancing
@@ -486,7 +494,9 @@ def search(query: str, top_k: int = 5) -> list[dict]:
             hits = _balance_by_source(hits, max_per_source=MAX_PER_SOURCE, total_cap=20)
 
     # Step 5: Rerank balanced pool → final top_k
+    _t5 = _time.time()
     final_hits = _rerank(query, hits, top_k=top_k)
+    print(f"  [TIMING] total search(): {_time.time()-_t0:.2f}s (rerank pool size: {len(hits)})")
 
     # Reading mode: guarantee at least 60% of top_k results from the source scripture
     # (ratio-based so behaviour is consistent if top_k changes: 5→3, 3→2, 10→6)
