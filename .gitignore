@@ -32,9 +32,8 @@ nohup.out
 # Qdrant local storage (284MB, environment-specific — use VPS Qdrant in prod)
 qdrant_data/
 
-# Corpus data — large files, regenerated from pipeline
-corpus/raw/
-corpus/processed/
+# Corpus data
+corpus/raw/sc-data/          # managed as git submodule
 corpus/contextual_progress.json
 
 # Database

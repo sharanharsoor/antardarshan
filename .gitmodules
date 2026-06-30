@@ -1,0 +1,3 @@
+[submodule "corpus/raw/sc-data"]
+	path = corpus/raw/sc-data
+	url = https://github.com/suttacentral/bilara-data.git
