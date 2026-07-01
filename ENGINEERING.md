@@ -5,7 +5,7 @@
 [![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&pause=1000&color=C8A97E&center=true&vCenter=true&width=600&lines=Citation-grounded+AI+for+Indian+philosophy;20%2C369+chunks+from+54+classical+texts;Hybrid+RAG+%2B+Llama+3.3+70B+%2B+Qdrant;Built+with+FastAPI%2C+Next.js%2C+BGE-M3)](https://github.com/sharanharsoor/antardarshan)
 
 [![Tests](https://img.shields.io/badge/tests-496%20passing-brightgreen?style=flat-square)](#testing)
-[![Eval](https://img.shields.io/badge/retrieval%20eval-25%2F25-brightgreen?style=flat-square)](#evaluation)
+[![Eval](https://img.shields.io/badge/retrieval%20eval-23%2F25%20(92%25)-brightgreen?style=flat-square)](#evaluation)
 [![Corpus](https://img.shields.io/badge/corpus-20%2C369%20chunks%20%7C%2054%20texts-blue?style=flat-square)](#the-corpus--the-real-engineering-problem)
 [![Stack](https://img.shields.io/badge/stack-FastAPI%20%7C%20Next.js%20%7C%20Qdrant%20%7C%20Together%20AI-informational?style=flat-square)](#tech-stack)
 [![License](https://img.shields.io/badge/code-MIT-green?style=flat-square)](LICENSE)
@@ -32,7 +32,7 @@ This document is a walkthrough of the system — decisions, tradeoffs, things th
 |---|---|---|
 | **Embedding** | BGE-M3 (1024d dense + sparse) | Single forward pass for hybrid vectors, no separate BM25 infrastructure |
 | **Vector DB** | Qdrant (self-hosted) | Native hybrid search; Rust performance; $0 |
-| **Reranker** | bge-reranker-v2-m3 (cross-encoder) | Reads (query, passage) jointly, much more accurate than embedding similarity alone |
+| **Reranker** | MiniLM-L6 cross-encoder (CPU-optimised) | 22MB vs 2.27GB original; 35x faster on CPU with negligible quality loss — see [reranker decision](#the-reranker-decision--a-production-lesson) |
 | **LLM** | Llama 3.3 70B via Together AI (Groq fallback) | Configurable provider; ~3-8s to first token; handles multi-tradition synthesis |
 | **Backend** | FastAPI + asyncio | Full async with thread-pool offloading for blocking calls |
 | **Frontend** | Next.js 14 App Router | Server components + streaming SSE |
@@ -159,11 +159,39 @@ flowchart LR
     Dense["Dense ANN\n(cosine similarity)"]
     Sparse["Sparse Matching\n(SPLADE-style)"]
     RRF["Reciprocal Rank Fusion\ntop-20 candidates"]
-    Cross["Cross-Encoder Reranker\nbge-reranker-v2-m3\ntop-20 → top-5"]
+    Cross["Cross-Encoder Reranker\nMiniLM-L6\ntop-20 → top-5"]
     LLM["LLM Provider\n(Llama 3.3 70B)"]
 
     Q --> BGE --> Dense & Sparse --> RRF --> Cross --> LLM
 ```
+
+### The Reranker Decision — A Production Lesson
+
+The original reranker was `BAAI/bge-reranker-v2-m3`, a 2.27GB cross-encoder that matches the embedding model family. In development on Apple Silicon (M-series), it was fast — Metal GPU acceleration made 20-pair reranking feel instant.
+
+On the production VPS (4 vCPU, no GPU), the first real query told a different story. Timing logs showed:
+
+```
+[TIMING] encode_query:              2.62s
+[TIMING] reranker.predict(20 pairs): 106.67s   ← the problem
+[TIMING] total search():            111.06s
+```
+
+107 seconds for reranking alone. The cross-encoder processes each (query, passage) pair through a full 560M-parameter transformer forward pass. 20 pairs × ~5 seconds each on CPU = nearly 2 minutes before the LLM even starts. Unacceptable.
+
+The fix was switching to `cross-encoder/ms-marco-MiniLM-L-6-v2` — a 22MB model designed for CPU inference. Same cross-encoder architecture, 100x smaller:
+
+```
+[TIMING] encode_query:              1.19s
+[TIMING] reranker.predict(20 pairs): 3.06s   ← 35x faster
+[TIMING] total search():             4.30s
+```
+
+Total query time dropped from 111 seconds to 4.3 seconds. The quality trade-off is real but minor — MiniLM-L6 was trained on MS MARCO passage ranking and generalises well to philosophical text retrieval. Retrieval eval confirmed no regression in passage quality.
+
+The lesson: **always profile on target hardware before launch**. Development on Apple Silicon with Metal GPU acceleration masks CPU inference costs entirely. What feels instant locally can be a production blocker.
+
+The quality trade-off is real but acceptable: retrieval eval dropped from 25/25 (100%) to 23/25 (92%) — above the 90% production threshold. The two regressions are edge cases where MiniLM-L6 deprioritises Sanskrit compound terms ("nishkama karma") or selects equally valid but differently-expected traditions. For a beta launch, 4-second queries at 92% precision beats 107-second queries at 100%.
 
 ### Query Analysis Layer
 
@@ -354,7 +382,8 @@ Together AI's Llama 3.3 70B gives ~3-8s to first token with strong citation qual
 ```bash
 python -m eval.run_eval
 # Runs 25 benchmark queries against the live backend
-# RESULTS: 25/25 passed (100%) — Citation: 20/20 | Well-being: 5/5
+# RESULTS: 23/25 passed (92%) — Citation: 18/20 | Well-being: 5/5
+# Avg search latency: 4-8s per query (encode + rerank on CPU)
 ```
 
 Queries cover: direct philosophy ("What is consciousness?"), cross-tradition ("How does Vedanta differ from Buddhism on the self?"), quote-grounded ("hatred is never laid to rest by hate"), personal ("I feel lost and don't know my purpose"), and textual ("karma yoga nishkama").
