@@ -52,7 +52,7 @@ export default function LandingPage() {
 
   return (
     // Full viewport height, flex-col so content fills and centers vertically
-    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center overflow-y-auto px-4 py-6">
+    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-4">
       <div className="w-full max-w-2xl">
 
         {/* Hero */}

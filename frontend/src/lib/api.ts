@@ -87,6 +87,10 @@ export interface QuotaStatus {
   status: "available" | "limited" | "exhausted";
   queries_today: number;
   daily_limit: number;
+  anon_daily_limit?: number;
+  anon_used_today?: number;
+  anon_remaining?: number;
+  anon_is_shared?: boolean;
 }
 
 // --- API Functions ---

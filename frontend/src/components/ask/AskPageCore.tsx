@@ -222,9 +222,12 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
 
     if (!autoSubmittedRef.current) {
       autoSubmittedRef.current = true;
-      // Strip prefill from URL immediately so duplicating the tab or
-      // navigating away + back doesn't re-fire the same question.
-      window.history.replaceState(null, "", "/ask");
+      // Strip only the prefill param from the URL immediately so duplicating
+      // the tab or navigating away + back doesn't re-fire the same question.
+      // Preserves any other params (e.g. conversation ID) and the current path.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("prefill");
+      window.history.replaceState(null, "", url.toString());
       setTimeout(() => {
         document.getElementById("ask-form")?.dispatchEvent(
           new Event("submit", { bubbles: true, cancelable: true })
@@ -529,7 +532,9 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
   // Per-user exhaustion takes priority over global when logged in
   const isExhausted = userQuota
     ? !userQuota.per_user_allowed
-    : quota?.status === "exhausted";
+    : quota
+      ? (quota.anon_remaining !== undefined ? quota.anon_remaining === 0 : quota.status === "exhausted")
+      : false;
 
   return (
     <div className="fixed inset-0 top-14 flex flex-col bg-background">
@@ -650,13 +655,21 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
                 </span>
               </div>
             ) : quota && (
-              <div className="flex items-center gap-2 text-sm text-muted" title={`${quota.queries_today} of ${quota.daily_limit} queries used today`}>
-                <span className={`h-2.5 w-2.5 rounded-full ${
+              <div className="flex items-center gap-2 text-sm text-muted"
+                title={quota.anon_remaining !== undefined
+                  ? `${quota.anon_remaining} of ${quota.anon_daily_limit} shared anonymous queries left today`
+                  : `${quota.queries_today} of ${quota.daily_limit} queries used today`}>
+                <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${
                   quota.status === "available" ? "bg-success" :
                   quota.status === "limited" ? "bg-yellow-500" : "bg-error"
                 }`} />
-                <span className="hidden sm:inline text-xs">
-                  {isExhausted ? "Daily limit reached" : "Queries available"}
+                <span className="text-xs">
+                  {isExhausted
+                    ? "Daily limit reached"
+                    : quota.anon_remaining !== undefined
+                      ? <>{quota.anon_remaining}/{quota.anon_daily_limit} free today · <a href="/auth/login" className="underline underline-offset-2 hover:text-accent transition-colors">Sign in for 50 personal</a></>
+                      : "Queries available"
+                  }
                 </span>
               </div>
             )}

@@ -644,13 +644,14 @@ async def get_verse_detail(request: Request, scripture: str, chapter: int, verse
 
 @app.get("/api/quota-status")
 async def quota_status():
-    """Global query availability status. Frontend shows green/yellow/red dot."""
+    """Global query availability status. Frontend shows green/yellow/red dot.
+    Also includes anon-specific quota so anonymous users see accurate remaining count."""
     from datetime import timezone, datetime
     daily_limit = GLOBAL_DAILY_LIMIT
 
+    today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     try:
         conn = sqlite3.connect(str(DB_PATH))
-        today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         row = conn.execute(
             "SELECT COUNT(*) FROM query_logs WHERE DATE(created_at) = ?", (today_utc,)
         ).fetchone()
@@ -666,7 +667,19 @@ async def quota_status():
     else:
         status = "available"
 
-    return {"status": status, "queries_today": queries_today, "daily_limit": daily_limit}
+    # Anon shared pool — accurate remaining count for anonymous users
+    anon_used = await asyncio.to_thread(_get_anon_count, today_utc)
+    anon_remaining = max(0, ANON_DAILY_LIMIT - anon_used)
+
+    return {
+        "status": status,
+        "queries_today": queries_today,
+        "daily_limit": daily_limit,
+        "anon_daily_limit": ANON_DAILY_LIMIT,
+        "anon_used_today": anon_used,
+        "anon_remaining": anon_remaining,
+        "anon_is_shared": True,  # shared global pool, not per-user
+    }
 
 
 @app.get("/api/quota-status/user")
