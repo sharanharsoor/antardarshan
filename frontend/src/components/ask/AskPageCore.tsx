@@ -222,6 +222,9 @@ function AskPageCoreInner({ conversationId: propConversationId }: AskPageCorePro
 
     if (!autoSubmittedRef.current) {
       autoSubmittedRef.current = true;
+      // Strip prefill from URL immediately so duplicating the tab or
+      // navigating away + back doesn't re-fire the same question.
+      window.history.replaceState(null, "", "/ask");
       setTimeout(() => {
         document.getElementById("ask-form")?.dispatchEvent(
           new Event("submit", { bubbles: true, cancelable: true })
