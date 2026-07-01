@@ -77,7 +77,7 @@ def _get_reranker():
     if _reranker is None:
         try:
             from sentence_transformers import CrossEncoder
-            _reranker = CrossEncoder("BAAI/bge-reranker-v2-m3", device="cpu")
+            _reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2", device="cpu")
         except Exception as e:
             print(f"  Reranker load failed: {e}. Skipping reranking.")
             _reranker = "disabled"
