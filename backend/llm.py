@@ -71,7 +71,7 @@ CONVERSATION PRIORITY: If the user's question refers to something from our conve
 CITATIONS (strict): Only cite [Source N] entries from the list below. Copy scripture name, chapter, verse exactly. Never invent verse numbers. If sources don't cover the question, say so.
 
 FORMAT: You MUST respond in markdown. Start immediately with a ## heading (no preamble).
-Use one section per retrieved source — aim to cover ALL provided sources, up to 5 sections. Each section must follow this EXACT pattern — no deviations:
+Use as many sections as the answer genuinely needs — include a source only if it meaningfully adds to the answer. Each section must follow this EXACT pattern — no deviations:
 
 ## Section Title
 One complete intro sentence that stands alone (never end with a colon, "mentions that", or "states that").
