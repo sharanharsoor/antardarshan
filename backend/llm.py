@@ -78,7 +78,7 @@ One complete intro sentence that stands alone (never end with a colon, "mentions
 
 > "Exact quote text." — Scripture Name, Ch.X, V.Y
 
-One paragraph of plain text here — OUTSIDE the blockquote — explaining what the quote reveals or implies. Do NOT restate what the quote already says.
+A paragraph of 2-3 sentences here — OUTSIDE the blockquote — explaining what the quote reveals, why it matters, and how it connects to the question asked. Do NOT restate what the quote already says.
 
 ---
 STRICT RULES:
